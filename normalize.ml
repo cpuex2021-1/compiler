@@ -190,8 +190,8 @@ let rec print_t t indent =
   ^
   match t with
   | Unit -> "UNIT"
-  | Int i -> "INT " ^ string_of_int i
-  | Float f -> "FLOAT " ^ string_of_float f
+  | Int i -> "INT(" ^ string_of_int i ^ ")"
+  | Float f -> "FLOAT(" ^ string_of_float f ^ ")"
   | Neg t -> "NEG " ^ t
   | Add (t1, t2) -> t1 ^ " + " ^ t2
   | Sub (t1, t2) -> t1 ^ " - " ^ t2
@@ -201,32 +201,31 @@ let rec print_t t indent =
   | FMul (t1, t2) -> t1 ^ " *. " ^ t2
   | FDiv (t1, t2) -> t1 ^ " /. " ^ t2
   | IfEq (e1, e2, t1, t2) ->
-      "If " ^ e1 ^ " = " ^ e2 ^ " then\n" ^ print_t t1 indent_next ^ "\nelse\n"
-      ^ print_t t2 indent_next
+      "If " ^ e1 ^ " = " ^ e2 ^ " then\n" ^ print_t t1 indent_next ^ "\n"
+      ^ String.make indent ' ' ^ "else\n" ^ print_t t2 indent_next
   | IfLE (e1, e2, t1, t2) ->
-      "If " ^ e1 ^ " <= " ^ e2 ^ " then\n" ^ print_t t1 indent_next ^ "\nelse\n"
-      ^ print_t t2 indent_next
+      "If " ^ e1 ^ " <= " ^ e2 ^ " then\n" ^ print_t t1 indent_next ^ "\n"
+      ^ String.make indent ' ' ^ "else\n" ^ print_t t2 indent_next
   | Let ((id, ty), t1, t2) ->
-      "LET " ^ id ^ " " ^ Type.print ty ^ " = \n" ^ print_t t1 indent_next
-      ^ "\nin\n" ^ print_t t2 indent_next
+      "LET " ^ id ^ ": " ^ Type.print ty ^ " = \n" ^ print_t t1 indent_next
+      ^ "\n" ^ String.make indent ' ' ^ "in\n" ^ print_t t2 indent_next
   | Var t -> t
   | LetRec (fdef, t) ->
-      "LETREC " ^ "name: " ^ fst fdef.name ^ " "
+      "LETREC " ^ "name[" ^ fst fdef.name ^ "]: ("
       ^ Type.print (snd fdef.name)
+      ^ "), args["
       ^ List.fold_left
-          (fun s arg ->
-            s ^ "\n"
-            ^ String.make indent_next ' '
-            ^ fst arg ^ " "
-            ^ Type.print (snd arg))
+          (fun s arg -> s ^ fst arg ^ ": " ^ Type.print (snd arg) ^ ", ")
           "" fdef.args
-      ^ "\n" ^ print_t t indent_next
+      ^ "], body[\n"
+      ^ print_t fdef.body indent_next
+      ^ "\n" ^ String.make indent ' ' ^ "] in\n" ^ print_t t indent_next
   | App (t, tl) -> "APP " ^ t ^ List.fold_left (fun s t -> s ^ " " ^ t) "" tl
   | Tuple tl -> "TUPLE" ^ List.fold_left (fun s t -> s ^ " " ^ t) "" tl
   | LetTuple (idl, t1, t2) ->
       "LETTUPLE " ^ "vars:"
       ^ List.fold_left
-          (fun s (id, t) -> s ^ " " ^ id ^ " " ^ Type.print t)
+          (fun s (id, t) -> s ^ " " ^ id ^ ": " ^ Type.print t)
           "" idl
       ^ "\n" ^ t1 ^ " = " ^ print_t t2 indent_next
   | Get (t1, t2) -> "Get " ^ t1 ^ " " ^ t2
