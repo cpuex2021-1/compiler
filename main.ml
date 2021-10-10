@@ -11,7 +11,10 @@ let compile in_channel out_channel =
   print_endline (Normalize.print normalized);
   let transformed = Normalize.alpha normalized in
   print_endline "[Alpha Transformed]";
-  print_endline (Normalize.print transformed)
+  print_endline (Normalize.print transformed);
+  let closured = Closure.f transformed in
+  print_endline "[Closured]";
+  print_endline (Closure.print closured)
 
 let file f =
   let in_channel = open_in f in

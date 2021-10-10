@@ -6,6 +6,7 @@ SOURCES = \
 	parser.mly \
 	typeCheck.ml \
 	normalize.ml \
+	closure.ml \
 	eval.ml \
 	main.ml
 RESULT  = main
