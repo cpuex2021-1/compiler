@@ -35,13 +35,24 @@ let rec env_find x env =
   | (a, b) :: xs -> if a = x then b else env_find x xs
   | [] -> raise Not_found
 
-let rec env_add x t env = if env_exists x env then env else env @ [ (x, t) ]
+let rec env_replace x t env =
+  match env with
+  | (a, b) :: xs -> if a = x then (a, t) :: xs else (a, b) :: env_replace x t xs
+  | [] -> raise Not_found
+
+let rec env_add x t env =
+  if env_exists x env then
+    if env_find x env = t then env else env_replace x t env
+  else env @ [ (x, t) ]
 
 let rec env_map f env =
   match env with (a, b) :: xs -> (a, f b) :: env_map f xs | [] -> []
 
 let add_list xys env =
   List.fold_left (fun env (x, y) -> env_add x y env) env xys
+
+let add_list2 xs ys env =
+  List.fold_left2 (fun env x y -> env_add x y env) env xs ys
 
 let insert_let (exp, typ) func =
   match exp with
@@ -50,6 +61,8 @@ let insert_let (exp, typ) func =
       let x = Id.gentmp typ in
       let exp', typ' = func x in
       (Let ((x, typ), exp, exp'), typ')
+
+let env_find2 x env = try env_find x env with Not_found -> x
 
 let rec kNorm_ env exp =
   match exp with
@@ -177,6 +190,54 @@ let rec kNorm_ env exp =
               insert_let (kNorm_ env e3) (fun z -> (Put (x, y, z), Type.Unit))))
 
 let kNorm exp = fst (kNorm_ [] exp)
+
+let rec alpha_ env exp =
+  match exp with
+  | Unit -> Unit
+  | Int i -> Int i
+  | Float d -> Float d
+  | Neg x -> Neg (env_find2 x env)
+  | Add (x, y) -> Add (env_find2 x env, env_find2 y env)
+  | Sub (x, y) -> Sub (env_find2 x env, env_find2 y env)
+  | FNeg x -> FNeg (env_find2 x env)
+  | FAdd (x, y) -> FAdd (env_find2 x env, env_find2 y env)
+  | FSub (x, y) -> FSub (env_find2 x env, env_find2 y env)
+  | FMul (x, y) -> FMul (env_find2 x env, env_find2 y env)
+  | FDiv (x, y) -> FDiv (env_find2 x env, env_find2 y env)
+  | IfEq (x, y, e1, e2) ->
+      IfEq (env_find2 x env, env_find2 y env, alpha_ env e1, alpha_ env e2)
+  | IfLE (x, y, e1, e2) ->
+      IfLE (env_find2 x env, env_find2 y env, alpha_ env e1, alpha_ env e2)
+  | Let ((x, t), e1, e2) ->
+      let x' = Id.genid x in
+      Let ((x', t), alpha_ env e1, alpha_ (env_add x x' env) e2)
+  | Var x -> Var (env_find2 x env)
+  | LetRec ({ name = x, t; args = yts; body = e1 }, e2) ->
+      let env = env_add x (Id.genid x) env in
+      let ys = List.map fst yts in
+      let env' = add_list2 ys (List.map Id.genid ys) env in
+      LetRec
+        ( {
+            name = (env_find2 x env, t);
+            args = List.map (fun (y, t) -> (env_find2 y env', t)) yts;
+            body = alpha_ env' e1;
+          },
+          alpha_ env e2 )
+  | App (x, ys) -> App (env_find2 x env, List.map (fun y -> env_find2 y env) ys)
+  | Tuple xs -> Tuple (List.map (fun x -> env_find2 x env) xs)
+  | LetTuple (xts, y, e) ->
+      let xs = List.map fst xts in
+      let env' = add_list2 xs (List.map Id.genid xs) env in
+      LetTuple
+        ( List.map (fun (x, t) -> (env_find2 x env', t)) xts,
+          env_find2 y env,
+          alpha_ env' e )
+  | Get (x, y) -> Get (env_find2 x env, env_find2 y env)
+  | Put (x, y, z) -> Put (env_find2 x env, env_find2 y env, env_find2 z env)
+  | ExtArray x -> ExtArray x
+  | ExtFunApp (x, ys) -> ExtFunApp (x, List.map (fun y -> env_find2 y env) ys)
+
+let alpha exp = alpha_ [] exp
 
 let rec print_env env =
   match env with

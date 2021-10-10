@@ -18,7 +18,15 @@ let rec env_find x env =
   | (a, b) :: xs -> if a = x then b else env_find x xs
   | [] -> raise Not_found
 
-let rec env_add x t env = if env_exists x env then env else env @ [ (x, t) ]
+let rec env_replace x t env =
+  match env with
+  | (a, b) :: xs -> if a = x then (a, t) :: xs else (a, b) :: env_replace x t xs
+  | [] -> raise Not_found
+
+let rec env_add x t env =
+  if env_exists x env then
+    if env_find x env = t then env else env_replace x t env
+  else env @ [ (x, t) ]
 
 let rec env_map f env =
   match env with (a, b) :: xs -> (a, f b) :: env_map f xs | [] -> []

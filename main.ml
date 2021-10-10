@@ -6,9 +6,12 @@ let compile in_channel out_channel =
   let typed = TypeCheck.f parsed in
   print_endline "[Typed]";
   print_endline (Syntax.print typed);
-  let normalized = Normalize.f typed in
+  let normalized = Normalize.kNorm typed in
   print_endline "[Normalized]";
-  print_endline (Normalize.print normalized)
+  print_endline (Normalize.print normalized);
+  let transformed = Normalize.alpha normalized in
+  print_endline "[Alpha Transformed]";
+  print_endline (Normalize.print transformed)
 
 let file f =
   let in_channel = open_in f in
