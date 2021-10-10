@@ -14,7 +14,10 @@ let compile in_channel out_channel =
   print_endline (Normalize.print transformed);
   let closured = Closure.f transformed in
   print_endline "[Closured]";
-  print_endline (Closure.print closured)
+  print_endline (Closure.print closured);
+  let virtual_asm = Virtual.f closured in
+  print_endline "[Virtual Asm]";
+  print_endline (Virtual.print virtual_asm)
 
 let file f =
   let in_channel = open_in f in

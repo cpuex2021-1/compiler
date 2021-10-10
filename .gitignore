@@ -68,13 +68,7 @@ _opam/
 *.cmp
 *.ans
 
-asm.ml
-asm.mli
-emit.ml
-libmincaml.S
-regAlloc.ml
-simm.ml
-virtual.ml
+main
 
 min-caml
 min-caml.top

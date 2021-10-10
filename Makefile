@@ -7,6 +7,8 @@ SOURCES = \
 	typeCheck.ml \
 	normalize.ml \
 	closure.ml \
+	asm.ml \
+	virtual.ml \
 	eval.ml \
 	main.ml
 RESULT  = main
