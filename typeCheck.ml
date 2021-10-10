@@ -10,12 +10,12 @@ let extenv = ref []
 
 let rec env_exists x env =
   match env with
-  | (a, b) :: xs -> if a == x then true else env_exists x xs
+  | (a, b) :: xs -> if a = x then true else env_exists x xs
   | [] -> false
 
 let rec env_find x env =
   match env with
-  | (a, b) :: xs -> if a == x then b else env_find x xs
+  | (a, b) :: xs -> if a = x then b else env_find x xs
   | [] -> raise Not_found
 
 let rec env_add x t env = if env_exists x env then env else env @ [ (x, t) ]
@@ -101,12 +101,20 @@ let rec unify t1 t2 =
   | Type.Var { contents = Some t1' }, _ -> unify t1' t2
   | _, Type.Var { contents = Some t2' } -> unify t1 t2'
   | Type.Var ({ contents = None } as r1), _ ->
-      if occur r1 t2 then raise (Unify (t1, t2));
+      if occur r1 t2 then (
+        print_endline "aaa";
+        raise (Unify (t1, t2)));
       r1 := Some t2
   | _, Type.Var ({ contents = None } as r2) ->
-      if occur r2 t1 then raise (Unify (t1, t2));
+      if occur r2 t1 then (
+        print_endline "bbb";
+        raise (Unify (t1, t2)));
       r2 := Some t1
-  | _, _ -> raise (Unify (t1, t2))
+  | a, b ->
+      print_endline (Type.print a);
+      print_endline (Type.print b);
+      print_endline "ccc";
+      raise (Unify (t1, t2))
 
 let rec g env e =
   try
