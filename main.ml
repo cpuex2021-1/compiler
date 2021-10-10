@@ -1,7 +1,9 @@
 let compile in_channel out_channel =
   let lexbuf = Lexing.from_channel in_channel in
   let parsed = Parser.exp Lexer.token lexbuf in
-  print_endline (Syntax.print parsed)
+  let typed = TypeCheck.f parsed in
+  print_endline (Syntax.print parsed);
+  print_endline (Syntax.print typed)
 
 let file f =
   let in_channel = open_in f in
