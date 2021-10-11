@@ -1,7 +1,7 @@
 SOURCES = \
+	id.ml \
 	type.ml \
 	syntax.ml \
-	id.ml \
 	ds.ml \
 	lexer.mll \
 	parser.mly \

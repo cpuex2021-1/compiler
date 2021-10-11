@@ -15,17 +15,17 @@ type t =
   | Eq of t * t
   | LE of t * t
   | If of t * t * t
-  | Let of (string * Type.t) * t * t
-  | Var of string
+  | Let of (Id.t * Type.t) * t * t
+  | Var of Id.t
   | LetRec of fundef * t
   | App of t * t list
   | Tuple of t list
-  | LetTuple of (string * Type.t) list * t * t
+  | LetTuple of (Id.t * Type.t) list * t * t
   | Array of t * t
   | Get of t * t
   | Put of t * t * t
 
-and fundef = { name : string * Type.t; args : (string * Type.t) list; body : t }
+and fundef = { name : Id.t * Type.t; args : (Id.t * Type.t) list; body : t }
 
 let rec print_t t indent =
   let indent_next = indent + 2 in
@@ -61,21 +61,24 @@ let rec print_t t indent =
   | Let ((id, ty), t1, t2) ->
       "LET\n"
       ^ String.make indent_next ' '
-      ^ id ^ "\n"
+      ^ Id.to_string id ^ "\n"
       ^ String.make indent_next ' '
       ^ Type.print ty ^ "\n" ^ print_t t1 indent_next ^ "\n"
       ^ print_t t2 indent_next
-  | Var t -> t
+  | Var t -> Id.to_string t
   | LetRec (fdef, t) ->
       "LETREC\n"
       ^ String.make indent_next ' '
-      ^ "name: " ^ fst fdef.name ^ " "
+      ^ "name: "
+      ^ Id.to_string (fst fdef.name)
+      ^ " "
       ^ Type.print (snd fdef.name)
       ^ List.fold_left
           (fun s arg ->
             s ^ "\n"
             ^ String.make indent_next ' '
-            ^ fst arg ^ " "
+            ^ Id.to_string (fst arg)
+            ^ " "
             ^ Type.print (snd arg))
           "" fdef.args
       ^ "\n" ^ print_t t indent_next
@@ -91,7 +94,9 @@ let rec print_t t indent =
       ^ "vars:"
       ^ List.fold_left
           (fun s (id, t) ->
-            s ^ "\n" ^ String.make indent_next ' ' ^ id ^ " " ^ Type.print t)
+            s ^ "\n"
+            ^ String.make indent_next ' '
+            ^ Id.to_string id ^ " " ^ Type.print t)
           "" idl
       ^ "\n" ^ print_t t1 indent_next ^ "\n" ^ print_t t2 indent_next
   | Array (t1, t2) ->
