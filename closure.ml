@@ -163,6 +163,18 @@ let rec print_t t indent =
   | Put (t1, t2, t3) -> "Put " ^ t1 ^ " " ^ t2 ^ " " ^ t3
   | ExtArray t -> "ExtArray "
 
+let print_fun d =
+  let Id.L name, typ = d.name in
+  let args = d.args in
+  let fargs = d.formal_fv in
+  let body = d.body in
+  name ^ " ("
+  ^ List.fold_left (fun a (l, t) -> a ^ l ^ "(" ^ Type.print t ^ ") ") "" args
+  ^ ")" ^ " ("
+  ^ List.fold_left (fun a (l, t) -> a ^ l ^ "(" ^ Type.print t ^ ") ") "" fargs
+  ^ "): " ^ Type.print typ ^ " = " ^ print_t body 0
+
 let print t =
   let (Prog (fundefs, e)) = t in
-  print_t e 0
+  List.fold_left (fun a b -> a ^ "\n[fun] " ^ print_fun b) "" fundefs
+  ^ "\n[body]" ^ print_t e 0
