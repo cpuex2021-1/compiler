@@ -264,15 +264,49 @@ let rec print_exp e =
   | Asm.IfLE (id, i, t1, t2) ->
       "if " ^ id ^ " <= " ^ print_i i ^ " then " ^ print_t t1 ^ " else "
       ^ print_t t2
-  | _ -> "closure"
+  | Asm.IfGE (id, i, t1, t2) ->
+      "if " ^ id ^ " >= " ^ print_i i ^ " then " ^ print_t t1 ^ " else "
+      ^ print_t t2
+  | Asm.IfFEq (id1, id2, t1, t2) ->
+      "if " ^ id1 ^ " =. " ^ id2 ^ " then " ^ print_t t1 ^ " else " ^ print_t t2
+  | Asm.IfFLE (id1, id2, t1, t2) ->
+      "if " ^ id1 ^ " <=. " ^ id2 ^ " then " ^ print_t t1 ^ " else "
+      ^ print_t t2
+  | Asm.CallCls (t1, t2, t3) ->
+      "callcls " ^ t1 ^ "("
+      ^ List.fold_left (fun a b -> a ^ " " ^ b) "" t2
+      ^ ") ("
+      ^ List.fold_left (fun a b -> a ^ " " ^ b) "" t3
+      ^ ")"
+  | Asm.CallDir (Id.L t1, t2, t3) ->
+      "calldir " ^ t1 ^ "("
+      ^ List.fold_left (fun a b -> a ^ " " ^ b) "" t2
+      ^ ") ("
+      ^ List.fold_left (fun a b -> a ^ " " ^ b) "" t3
+      ^ ")"
+  | Asm.Save (t1, t2) -> "save " ^ t1 ^ " " ^ t2
+  | Asm.Restore t -> "restore " ^ t
 
 and print_t t =
   match t with
   | Asm.Ans e -> print_exp e
   | Asm.Let ((id, typ), e, t') ->
-      print_endline (id ^ ": " ^ Type.print typ ^ "= " ^ print_exp e ^ " in \n");
+      print_endline (id ^ ": " ^ Type.print typ ^ " = " ^ print_exp e ^ " \n");
       print_t t'
+
+let print_fun d =
+  let (Id.L name) = d.Asm.name in
+  let args = d.Asm.args in
+  let fargs = d.Asm.fargs in
+  let body = d.Asm.body in
+  let ret = d.Asm.ret in
+  name ^ " ("
+  ^ List.fold_left (fun a b -> a ^ " " ^ b) "" args
+  ^ ")" ^ " ("
+  ^ List.fold_left (fun a b -> a ^ " " ^ b) "" fargs
+  ^ ")" ^ " -> " ^ Type.print ret ^ " = " ^ print_t body
 
 let print t =
   let (Asm.Prog (fl, fundefs, e)) = t in
-  print_t e
+  List.fold_left (fun a b -> a ^ "\n[fun] " ^ print_fun b) "" fundefs
+  ^ "\n[body] " ^ print_t e
