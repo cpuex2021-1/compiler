@@ -10,6 +10,7 @@ SOURCES = \
 	closure.ml \
 	asm.ml \
 	virtual.ml \
+	regAlloc.ml \
 	eval.ml \
 	main.ml
 RESULT  = main

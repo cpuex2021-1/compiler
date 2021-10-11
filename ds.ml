@@ -23,6 +23,11 @@ let rec env_add x t env =
 let rec env_map f env =
   match env with (a, b) :: xs -> (a, f b) :: env_map f xs | [] -> []
 
+let rec env_remove x env =
+  match env with
+  | (a, b) :: r -> if a = x then env_remove x r else (a, b) :: env_remove x r
+  | [] -> []
+
 let add_list xys env =
   List.fold_left (fun env (x, y) -> env_add x y env) env xys
 
