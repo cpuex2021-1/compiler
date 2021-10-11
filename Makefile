@@ -2,6 +2,7 @@ SOURCES = \
 	type.ml \
 	syntax.ml \
 	id.ml \
+	ds.ml \
 	lexer.mll \
 	parser.mly \
 	typeCheck.ml \
