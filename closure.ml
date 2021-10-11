@@ -150,8 +150,10 @@ let rec print_t t indent =
       ^ "\n" ^ String.make indent ' ' ^ "in\n" ^ print_t t2 indent_next
   | Var t -> t
   | MakeCls ((id, ty), cl, t) -> "MakeCls\n"
-  | AppCls (id, idl) -> "AppCls\n"
-  | AppDir (id, idl) -> "AppDir\n"
+  | AppCls (id, idl) ->
+      "AppCls " ^ id ^ List.fold_left (fun a b -> a ^ " " ^ b) "" idl ^ "\n"
+  | AppDir (Id.L id, idl) ->
+      "AppDir " ^ id ^ List.fold_left (fun a b -> a ^ " " ^ b) "" idl ^ "\n"
   | Tuple tl -> "TUPLE" ^ List.fold_left (fun s t -> s ^ " " ^ t) "" tl
   | LetTuple (idl, t1, t2) ->
       "LETTUPLE " ^ "vars:"
