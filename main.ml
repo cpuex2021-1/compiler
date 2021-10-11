@@ -20,7 +20,8 @@ let compile in_channel out_channel =
   print_endline (Virtual.print virtual_asm);
   let allocated = RegAlloc.f virtual_asm in
   print_endline "[Register Allocated]";
-  print_endline (Virtual.print allocated)
+  print_endline (Virtual.print allocated);
+  Emit.f out_channel allocated
 
 let file f =
   let in_channel = open_in f in

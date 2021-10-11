@@ -50,3 +50,8 @@ let rec set_diff s1 s2 =
   match s1 with
   | f :: r -> if set_exist f s2 then set_diff r s2 else f :: set_diff r s2
   | [] -> []
+
+let rec set_inter s1 s2 =
+  match s1 with
+  | f :: r -> if set_exist f s2 then f :: set_inter r s2 else set_inter r s2
+  | [] -> []

@@ -11,6 +11,7 @@ SOURCES = \
 	asm.ml \
 	virtual.ml \
 	regAlloc.ml \
+	emit.ml \
 	eval.ml \
 	main.ml
 RESULT  = main
