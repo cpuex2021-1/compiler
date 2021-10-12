@@ -116,7 +116,7 @@ let rec g env known = function
   | Normalize.Get (x, y) -> Get (x, y)
   | Normalize.Put (x, y, z) -> Put (x, y, z)
   | Normalize.ExtArray x -> ExtArray (Id.L x)
-  | Normalize.ExtFunApp (x, ys) -> AppDir (Id.L ("min_caml_" ^ x), ys)
+  | Normalize.ExtFunApp (x, ys) -> AppDir (Id.L x, ys)
 
 let f e =
   toplevel := [];

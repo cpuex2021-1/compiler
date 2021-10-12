@@ -206,7 +206,8 @@ let rec alpha_ env exp =
   | Get (x, y) -> Get (env_find2 x env, env_find2 y env)
   | Put (x, y, z) -> Put (env_find2 x env, env_find2 y env, env_find2 z env)
   | ExtArray x -> ExtArray x
-  | ExtFunApp (x, ys) -> ExtFunApp (x, List.map (fun y -> env_find2 y env) ys)
+  | ExtFunApp (x, ys) ->
+      ExtFunApp (env_find2 x env, List.map (fun y -> env_find2 y env) ys)
 
 let alpha exp = alpha_ [] exp
 
