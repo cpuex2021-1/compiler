@@ -3,7 +3,8 @@
     open Type
 }
 
-let space = [' ' '\t' '\n' '\r']
+let space = [' ' '\t' '\r']
+let newline = ['\n']
 let digit = ['0'-'9']
 let lower = ['a'-'z']
 let upper = ['A'-'Z']
@@ -11,16 +12,18 @@ let upper = ['A'-'Z']
 rule token = parse
 | space+
     { token lexbuf }
+| newline
+    { Lexing.new_line lexbuf; token lexbuf }
 | "(*"
     { comment lexbuf; token lexbuf }
 | '('
     { LPAREN }
 | ')'
     { RPAREN }
-| "true"
+(* | "true"
     { BOOL(true) }
 | "false"
-    { BOOL(false) }
+    { BOOL(false) } *)
 | "not"
     { NOT }
 | digit+ 
@@ -91,6 +94,8 @@ and comment = parse
 | "(*"
     { comment lexbuf;
       comment lexbuf }
+| newline
+    { Lexing.new_line lexbuf; comment lexbuf }
 | eof
     { Format.eprintf "warning: unterminated comment@." }
 | _

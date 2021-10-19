@@ -133,10 +133,9 @@ exp:
     %prec prec_app
     { Array($2, $3) }
 | error
-    { failwith
-        (Printf.sprintf "parse error near characters %d-%d"
-           (Parsing.symbol_start ())
-           (Parsing.symbol_end ())) }
+    { let pos = Parsing.symbol_start_pos () in 
+    Printf.printf "**Parser error at line %d char %d.**\n"
+    pos.pos_lnum (pos.pos_cnum - pos.pos_bol); raise Parse_error }
 
 fundef:
 | IDENT formal_args EQUAL exp
