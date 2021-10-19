@@ -7,6 +7,8 @@ type t =
   | Neg of Id.t
   | Add of Id.t * Id.t
   | Sub of Id.t * Id.t
+  | Mul of Id.t * Id.t
+  | Div of Id.t * Id.t
   | FNeg of Id.t
   | FAdd of Id.t * Id.t
   | FSub of Id.t * Id.t
@@ -50,6 +52,12 @@ let rec kNorm_ env exp =
   | Syntax.Sub (e1, e2) ->
       insert_let (kNorm_ env e1) (fun x ->
           insert_let (kNorm_ env e2) (fun y -> (Sub (x, y), Type.Int)))
+  | Syntax.Mul (e1, e2) ->
+      insert_let (kNorm_ env e1) (fun x ->
+          insert_let (kNorm_ env e2) (fun y -> (Mul (x, y), Type.Int)))
+  | Syntax.Div (e1, e2) ->
+      insert_let (kNorm_ env e1) (fun x ->
+          insert_let (kNorm_ env e2) (fun y -> (Div (x, y), Type.Int)))
   | Syntax.FNeg e -> insert_let (kNorm_ env e) (fun x -> (Neg x, Type.Float))
   | Syntax.FAdd (e1, e2) ->
       insert_let (kNorm_ env e1) (fun x ->
@@ -170,6 +178,8 @@ let rec alpha_ env exp =
   | Neg x -> Neg (env_find2 x env)
   | Add (x, y) -> Add (env_find2 x env, env_find2 y env)
   | Sub (x, y) -> Sub (env_find2 x env, env_find2 y env)
+  | Mul (x, y) -> Mul (env_find2 x env, env_find2 y env)
+  | Div (x, y) -> Div (env_find2 x env, env_find2 y env)
   | FNeg x -> FNeg (env_find2 x env)
   | FAdd (x, y) -> FAdd (env_find2 x env, env_find2 y env)
   | FSub (x, y) -> FSub (env_find2 x env, env_find2 y env)
@@ -229,6 +239,8 @@ let rec print_t t indent =
   | Neg t -> "NEG " ^ t
   | Add (t1, t2) -> t1 ^ " + " ^ t2
   | Sub (t1, t2) -> t1 ^ " - " ^ t2
+  | Mul (t1, t2) -> t1 ^ " * " ^ t2
+  | Div (t1, t2) -> t1 ^ " / " ^ t2
   | FNeg t -> "FNEG " ^ t
   | FAdd (t1, t2) -> t1 ^ " +. " ^ t2
   | FSub (t1, t2) -> t1 ^ " -. " ^ t2

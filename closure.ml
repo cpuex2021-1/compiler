@@ -9,6 +9,8 @@ type t =
   | Neg of Id.t
   | Add of Id.t * Id.t
   | Sub of Id.t * Id.t
+  | Mul of Id.t * Id.t
+  | Div of Id.t * Id.t
   | FNeg of Id.t
   | FAdd of Id.t * Id.t
   | FSub of Id.t * Id.t
@@ -41,6 +43,8 @@ let rec fv = function
   | Neg x | FNeg x -> [ x ]
   | Add (x, y)
   | Sub (x, y)
+  | Mul (x, y)
+  | Div (x, y)
   | FAdd (x, y)
   | FSub (x, y)
   | FMul (x, y)
@@ -67,6 +71,8 @@ let rec g env known = function
   | Normalize.Neg x -> Neg x
   | Normalize.Add (x, y) -> Add (x, y)
   | Normalize.Sub (x, y) -> Sub (x, y)
+  | Normalize.Mul (x, y) -> Mul (x, y)
+  | Normalize.Div (x, y) -> Div (x, y)
   | Normalize.FNeg x -> FNeg x
   | Normalize.FAdd (x, y) -> FAdd (x, y)
   | Normalize.FSub (x, y) -> FSub (x, y)
@@ -134,6 +140,8 @@ let rec print_t t indent =
   | Neg t -> "NEG " ^ t
   | Add (t1, t2) -> t1 ^ " + " ^ t2
   | Sub (t1, t2) -> t1 ^ " - " ^ t2
+  | Mul (t1, t2) -> t1 ^ " * " ^ t2
+  | Div (t1, t2) -> t1 ^ " / " ^ t2
   | FNeg t -> "FNEG " ^ t
   | FAdd (t1, t2) -> t1 ^ " +. " ^ t2
   | FSub (t1, t2) -> t1 ^ " -. " ^ t2

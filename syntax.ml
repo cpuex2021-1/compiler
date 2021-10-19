@@ -7,6 +7,8 @@ type t =
   | Neg of t
   | Add of t * t
   | Sub of t * t
+  | Mul of t * t
+  | Div of t * t
   | FNeg of t
   | FAdd of t * t
   | FSub of t * t
@@ -42,6 +44,10 @@ let rec print_t t indent =
       "ADD\n" ^ print_t t1 indent_next ^ "\n" ^ print_t t2 indent_next
   | Sub (t1, t2) ->
       "SUB\n" ^ print_t t1 indent_next ^ "\n" ^ print_t t2 indent_next
+  | Mul (t1, t2) ->
+      "MUL\n" ^ print_t t1 indent_next ^ "\n" ^ print_t t2 indent_next
+  | Div (t1, t2) ->
+      "DIV\n" ^ print_t t1 indent_next ^ "\n" ^ print_t t2 indent_next
   | FNeg t -> "FNEG " ^ print_t t indent_next
   | FAdd (t1, t2) ->
       "FADD\n" ^ print_t t1 indent_next ^ "\n" ^ print_t t2 indent_next

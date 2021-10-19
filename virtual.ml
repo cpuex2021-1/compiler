@@ -23,6 +23,8 @@ let expand xts ini addf addi =
       (offset + 8, addf x offset acc))
     (fun (offset, acc) x t -> (offset + 4, addi x t offset acc))
 
+let rec log2 n = if n = 1 then 0 else 1 + log2 (n / 2)
+
 let rec g env = function
   | Closure.Unit -> Asm.Ans Asm.Nop
   | Closure.Int i -> Asm.Ans (Asm.Set i)
@@ -40,7 +42,17 @@ let rec g env = function
       Let ((x, Type.Int), Asm.SetL l, Asm.Ans (Asm.LdDF (x, Asm.C 0)))
   | Closure.Neg x -> Asm.Ans (Asm.Neg x)
   | Closure.Add (x, y) -> Asm.Ans (Asm.Add (x, Asm.V y))
-  | Closure.Sub (x, y) -> Asm.Ans (Asm.Sub (x, V y))
+  | Closure.Sub (x, y) -> Asm.Ans (Asm.Sub (x, Asm.V y))
+  | Closure.Mul (x, y) ->
+      Asm.Ans (Asm.SLL (x, Asm.C 2))
+      (* TODO *)
+      (* let z = env_find y env in
+         Asm.Ans (Asm.SLL (x, Asm.C (log2 z))) *)
+  | Closure.Div (x, y) ->
+      Asm.Ans (Asm.SLL (x, Asm.C (-1)))
+      (* TODO *)
+      (* let z = env_find y env in
+         Asm.Ans (Asm.SLL (x, Asm.C (-1 * log2 z))) *)
   | Closure.FNeg x -> Asm.Ans (Asm.FNegD x)
   | Closure.FAdd (x, y) -> Asm.Ans (Asm.FAddD (x, y))
   | Closure.FSub (x, y) -> Asm.Ans (Asm.FSubD (x, y))
