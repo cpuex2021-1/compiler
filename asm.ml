@@ -50,24 +50,26 @@ let seq (e1, e2) = Let ((Id.gentmp Type.Unit, Type.Unit), e1, e2)
 
 let regs =
   [|
-    "r0";
-    "r1";
-    "r2";
-    "r3";
-    "r4";
-    "r5";
-    "r6";
-    "r7";
-    "r8";
-    "r9";
-    "r10";
-    "r11";
-    "r12";
-    "r13";
-    "r14";
-    "r15";
-    "r16";
-    "r17";
+    "a0";
+    "a1";
+    "s0";
+    "s1";
+    "s2";
+    "s3";
+    "s4";
+    "s5";
+    "s6";
+    "s7";
+    "s8";
+    "s9";
+    "s10";
+    "s11";
+    "s12";
+    "s13";
+    "s14";
+    "s15";
+    "s16";
+    "s17";
   |]
 
 let fregs = Array.init 16 (fun i -> Printf.sprintf "%%f%d" (i * 2))
@@ -86,7 +88,7 @@ let reg_sp = "sp"
 
 let reg_hp = "hp"
 
-let reg_ra = "ra"
+let reg_ra = "a0"
 
 let is_reg x = x.[0] = '%'
 
