@@ -72,6 +72,8 @@ let rec unify t1 t2 =
   | Type.Unit, Type.Unit
   (* | Type.Bool, Type.Bool *)
   | Type.Int, Type.Int
+  | Type.Unit, Type.Int
+  | Type.Int, Type.Unit
   | Type.Float, Type.Float ->
       ()
   | Type.Fun (t1s, t1'), Type.Fun (t2s, t2') ->
@@ -175,6 +177,6 @@ let rec g env e =
 let f e =
   extenv := [];
   (try unify Type.Unit (g [] e)
-   with Unify _ -> failwith "top level does not have type unit");
+   with Unify _ -> failwith "top level does not have type unit or int");
   extenv := env_map deref_typ !extenv;
   deref_term e
