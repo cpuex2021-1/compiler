@@ -148,10 +148,18 @@ let rec g env e =
         let env = env_add x t env in
         unify t (Type.Fun (List.map snd yts, g (add_list yts env) e1));
         g env e2
-    | App (e, es) ->
+    | App (e, es) -> (
         let t = Type.gentyp () in
-        unify (g env e) (Type.Fun (List.map (g env) es, t));
-        t
+        try
+          unify (g env e) (Type.Fun (List.map (g env) es, t));
+          t
+        with _ -> (
+          match e with
+          | Var x ->
+              extenv := env_remove x !extenv;
+              unify (g env e) (Type.Fun (List.map (g env) es, t));
+              t
+          | _ -> raise Not_found))
     | Tuple es -> Type.Tuple (List.map (g env) es)
     | LetTuple (xts, e1, e2) ->
         unify (Type.Tuple (List.map snd xts)) (g env e1);
