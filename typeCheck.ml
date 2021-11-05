@@ -70,7 +70,7 @@ let rec occur r1 = function
 let rec unify t1 t2 =
   match (t1, t2) with
   | Type.Unit, Type.Unit
-  | Type.Bool, Type.Bool
+  (* | Type.Bool, Type.Bool *)
   | Type.Int, Type.Int
   | Type.Float, Type.Float ->
       ()
@@ -105,12 +105,12 @@ let rec g env e =
   try
     match e with
     | Unit -> Type.Unit
-    | Bool _ -> Type.Bool
+    | Bool _ -> Type.Int
     | Int _ -> Type.Int
     | Float _ -> Type.Float
     | Not e ->
-        unify Type.Bool (g env e);
-        Type.Bool
+        unify Type.Int (g env e);
+        Type.Int
     | Neg e ->
         unify Type.Int (g env e);
         Type.Int
@@ -127,9 +127,9 @@ let rec g env e =
         Type.Float
     | Eq (e1, e2) | LE (e1, e2) ->
         unify (g env e1) (g env e2);
-        Type.Bool
+        Type.Int
     | If (e1, e2, e3) ->
-        unify (g env e1) Type.Bool;
+        unify (g env e1) Type.Int;
         let t2 = g env e2 in
         let t3 = g env e3 in
         unify t2 t3;

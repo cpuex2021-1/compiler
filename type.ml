@@ -1,6 +1,6 @@
 type t =
   | Unit
-  | Bool
+  (* | Bool *)
   | Int
   | Float
   | Fun of t list * t
@@ -13,7 +13,7 @@ let gentyp () = Var (ref None)
 let rec print t =
   match t with
   | Unit -> "Unit"
-  | Bool -> "Bool"
+  (* | Bool -> "Bool" *)
   | Int -> "Int"
   | Float -> "Float"
   | Fun (tl, t) ->
