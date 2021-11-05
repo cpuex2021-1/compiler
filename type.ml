@@ -20,6 +20,7 @@ let rec print t =
       "Fun ("
       ^ List.fold_left (fun s t -> s ^ print t) "" tl
       ^ ") -> " ^ print t
-  | Tuple tl -> "(" ^ List.fold_left (fun s t -> s ^ print t) "" tl ^ ")"
-  | Array t -> "Array" ^ print t
-  | Var t -> "Var"
+  | Tuple tl ->
+      "Tuple (" ^ List.fold_left (fun s t -> s ^ "|" ^ print t) "" tl ^ ")"
+  | Array t -> "Array " ^ print t
+  | Var t -> ( "Var " ^ match !t with Some t' -> print t' | None -> "none")
