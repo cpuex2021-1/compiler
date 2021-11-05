@@ -90,7 +90,10 @@ let reg_hp = "hp"
 
 let reg_ra = "a0"
 
-let is_reg x = x.[0] = '%'
+let is_reg x =
+  Array.exists (fun a -> a = x) regs
+  || Array.exists (fun a -> a = x) fregs
+  || x = reg_sp || x = reg_hp || x = reg_ra
 
 let co_freg_table =
   let ht = Hashtbl.create 16 in
