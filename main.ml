@@ -1,26 +1,35 @@
+let verbose = ref false
+
 let compile in_channel out_channel =
   let lexbuf = Lexing.from_channel in_channel in
   let parsed = Parser.exp Lexer.token lexbuf in
-  print_endline "[Parsed]";
-  print_endline (Syntax.print parsed);
+  if !verbose then (
+    print_endline "[Parsed]";
+    print_endline (Syntax.print parsed));
   let typed = TypeCheck.f parsed in
-  print_endline "[Typed]";
-  print_endline (Syntax.print typed);
+  if !verbose then (
+    print_endline "[Typed]";
+    print_endline (Syntax.print typed));
   let normalized = Normalize.kNorm typed in
-  print_endline "[Normalized]";
-  print_endline (Normalize.print normalized);
+  if !verbose then (
+    print_endline "[Normalized]";
+    print_endline (Normalize.print normalized));
   let transformed = Normalize.alpha normalized in
-  print_endline "[Alpha Transformed]";
-  print_endline (Normalize.print transformed);
+  if !verbose then (
+    print_endline "[Alpha Transformed]";
+    print_endline (Normalize.print transformed));
   let closured = Closure.f transformed in
-  print_endline "[Closured]";
-  print_endline (Closure.print closured);
+  if !verbose then (
+    print_endline "[Closured]";
+    print_endline (Closure.print closured));
   let virtual_asm = Virtual.f closured in
-  print_endline "[Virtual Asm]";
-  print_endline (Virtual.print virtual_asm);
+  if !verbose then (
+    print_endline "[Virtual Asm]";
+    print_endline (Virtual.print virtual_asm));
   let allocated = RegAlloc.f virtual_asm in
-  print_endline "[Register Allocated]";
-  print_endline (Virtual.print allocated);
+  if !verbose then (
+    print_endline "[Register Allocated]";
+    print_endline (Virtual.print allocated));
   Emit.f out_channel allocated
 
 let file f =
@@ -30,5 +39,12 @@ let file f =
 
 let () =
   let f = ref "" in
-  Arg.parse [] (fun s -> f := s) "";
+  Arg.parse
+    [
+      ( "-v",
+        Arg.Bool (fun i -> verbose := i),
+        "whether to output interim program" );
+    ]
+    (fun s -> f := s)
+    "";
   ignore (file !f)
