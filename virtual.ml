@@ -60,14 +60,12 @@ let rec g env = function
   | Closure.FDiv (x, y) -> Asm.Ans (Asm.FDivD (x, y))
   | Closure.IfEq (x, y, e1, e2) -> (
       match env_find x env with
-      | Type.Bool | Type.Int ->
-          Asm.Ans (Asm.IfEq (x, Asm.V y, g env e1, g env e2))
+      | Type.Int -> Asm.Ans (Asm.IfEq (x, Asm.V y, g env e1, g env e2))
       | Type.Float -> Asm.Ans (Asm.IfFEq (x, y, g env e1, g env e2))
       | _ -> failwith "equality supported only for bool, int, and float")
   | Closure.IfLE (x, y, e1, e2) -> (
       match env_find x env with
-      | Type.Bool | Type.Int ->
-          Asm.Ans (Asm.IfLE (x, Asm.V y, g env e1, g env e2))
+      | Type.Int -> Asm.Ans (Asm.IfLE (x, Asm.V y, g env e1, g env e2))
       | Type.Float -> Asm.Ans (Asm.IfFLE (x, y, g env e1, g env e2))
       | _ -> failwith "inequality supported only for bool, int, and float")
   | Closure.Let ((x, t1), e1, e2) ->
