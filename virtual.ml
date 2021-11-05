@@ -166,6 +166,7 @@ let rec g env = function
               Asm.Ans (Asm.St (z, x, Asm.V offset)) )
       | _ -> assert false)
   | Closure.ExtArray (Id.L x) -> Asm.Ans (Asm.SetL (Id.L ("min_caml_" ^ x)))
+  | Closure.ExtTuple (Id.L x) -> Asm.Ans (Asm.SetL (Id.L ("min_caml_" ^ x)))
 
 (* 関数の仮想マシンコード生成 *)
 let h

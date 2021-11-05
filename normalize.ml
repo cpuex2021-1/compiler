@@ -25,6 +25,7 @@ type t =
   | Get of Id.t * Id.t
   | Put of Id.t * Id.t * Id.t
   | ExtArray of Id.t
+  | ExtTuple of Id.t
   | ExtFunApp of Id.t * Id.t list
 
 and fundef = { name : Id.t * Type.t; args : (Id.t * Type.t) list; body : t }
@@ -40,11 +41,10 @@ let insert_let (exp, typ) func =
 let rec kNorm_ env exp =
   match exp with
   | Syntax.Unit -> (Unit, Type.Unit)
-  | Syntax.Bool b -> (Int (if b then 1 else 0), Type.Int)
+  (* | Syntax.Bool b -> (Int (if b then 1 else 0), Type.Int) *)
   | Syntax.Int i -> (Int i, Type.Int)
   | Syntax.Float f -> (Float f, Type.Float)
-  | Syntax.Not e ->
-      kNorm_ env (Syntax.If (e, Syntax.Bool false, Syntax.Bool true))
+  | Syntax.Not e -> kNorm_ env (Syntax.If (e, Syntax.Int 0, Syntax.Int 1))
   | Syntax.Neg e -> insert_let (kNorm_ env e) (fun x -> (Neg x, Type.Int))
   | Syntax.Add (e1, e2) ->
       insert_let (kNorm_ env e1) (fun x ->
@@ -72,11 +72,9 @@ let rec kNorm_ env exp =
       insert_let (kNorm_ env e1) (fun x ->
           insert_let (kNorm_ env e2) (fun y -> (FDiv (x, y), Type.Float)))
   | Syntax.Eq (e1, e2) ->
-      kNorm_ env
-        (Syntax.If (Syntax.Eq (e1, e2), Syntax.Bool true, Syntax.Bool false))
+      kNorm_ env (Syntax.If (Syntax.Eq (e1, e2), Syntax.Int 1, Syntax.Int 0))
   | Syntax.LE (e1, e2) ->
-      kNorm_ env
-        (Syntax.If (Syntax.LE (e1, e2), Syntax.Bool true, Syntax.Bool false))
+      kNorm_ env (Syntax.If (Syntax.LE (e1, e2), Syntax.Int 1, Syntax.Int 0))
   | Syntax.If (Syntax.Not e1, e2, e3) -> kNorm_ env (Syntax.If (e1, e3, e2))
   | Syntax.If (Syntax.Eq (e1, e2), e3, e4) ->
       insert_let (kNorm_ env e1) (fun x ->
@@ -91,7 +89,8 @@ let rec kNorm_ env exp =
               let e4', t4 = kNorm_ env e4 in
               (IfLE (x, y, e3', e4'), t3)))
   | Syntax.If (e1, e2, e3) ->
-      kNorm_ env (Syntax.If (Syntax.Eq (e1, Syntax.Bool true), e2, e3))
+      (* if e1 == 0 then e3 else e2 *)
+      kNorm_ env (Syntax.If (Syntax.Eq (e1, Syntax.Int 0), e3, e2))
   | Syntax.Let ((x, t), e2, e3) ->
       let e2', t2 = kNorm_ env e2 in
       let e3', t3 = kNorm_ (env_add x t env) e3 in
@@ -101,6 +100,7 @@ let rec kNorm_ env exp =
       else
         match env_find x !TypeCheck.extenv with
         | Type.Array e -> (ExtArray x, Type.Array e)
+        | Type.Tuple e -> (ExtTuple x, Type.Tuple e)
         | _ ->
             failwith
               (Printf.sprintf "external variable %s does not have an array type"
@@ -216,6 +216,7 @@ let rec alpha_ env exp =
   | Get (x, y) -> Get (env_find2 x env, env_find2 y env)
   | Put (x, y, z) -> Put (env_find2 x env, env_find2 y env, env_find2 z env)
   | ExtArray x -> ExtArray x
+  | ExtTuple x -> ExtTuple x
   | ExtFunApp (x, ys) ->
       ExtFunApp (env_find2 x env, List.map (fun y -> env_find2 y env) ys)
 
@@ -277,6 +278,7 @@ let rec print_t t indent =
   | Get (t1, t2) -> "Get " ^ t1 ^ " " ^ t2
   | Put (t1, t2, t3) -> "Put " ^ t1 ^ " " ^ t2 ^ " " ^ t3
   | ExtArray t -> "ExtArray " ^ t
+  | ExtTuple t -> "ExtTuple " ^ t
   | ExtFunApp (t, tl) ->
       "ExtFunApp " ^ t ^ List.fold_left (fun s t -> s ^ " " ^ t) "" tl
 

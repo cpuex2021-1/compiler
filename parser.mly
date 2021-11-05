@@ -3,7 +3,7 @@
     let addtyp x = (x, Type.gentyp ())
 %}
 
-%token <bool> BOOL
+// %token <bool> BOOL
 %token <int> INT
 %token <float> FLOAT
 %token NOT
@@ -61,8 +61,8 @@ simple_exp:
     { $2 }
 | LPAREN RPAREN
     { Unit }
-| BOOL
-    { Bool($1) }
+// | BOOL
+//     { Bool($1) }
 | INT
     { Int($1) }
 | FLOAT
@@ -117,6 +117,8 @@ exp:
     { FMul($1, $3) }
 | exp SLASH_DOT exp
     { FDiv($1, $3) }
+| LET INT EQUAL exp IN exp 
+    { $6 }
 | LET IDENT EQUAL exp IN exp
     %prec prec_let
     { Let(addtyp $2, $4, $6) }

@@ -107,7 +107,7 @@ let rec g env e =
   try
     match e with
     | Unit -> Type.Unit
-    | Bool _ -> Type.Int
+    (* | Bool _ -> Type.Int *)
     | Int _ -> Type.Int
     | Float _ -> Type.Float
     | Not e ->

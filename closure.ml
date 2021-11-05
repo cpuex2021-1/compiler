@@ -28,6 +28,7 @@ type t =
   | Get of Id.t * Id.t
   | Put of Id.t * Id.t * Id.t
   | ExtArray of Id.l
+  | ExtTuple of Id.l
 
 type fundef = {
   name : Id.l * Type.t;
@@ -39,7 +40,7 @@ type fundef = {
 type prog = Prog of fundef list * t
 
 let rec fv = function
-  | Unit | Int _ | Float _ | ExtArray _ -> []
+  | Unit | Int _ | Float _ | ExtArray _ | ExtTuple _ -> []
   | Neg x | FNeg x -> [ x ]
   | Add (x, y)
   | Sub (x, y)
@@ -122,6 +123,7 @@ let rec g env known = function
   | Normalize.Get (x, y) -> Get (x, y)
   | Normalize.Put (x, y, z) -> Put (x, y, z)
   | Normalize.ExtArray x -> ExtArray (Id.L x)
+  | Normalize.ExtTuple x -> ExtTuple (Id.L x)
   | Normalize.ExtFunApp (x, ys) -> AppDir (Id.L x, ys)
 
 let f e =
@@ -172,6 +174,7 @@ let rec print_t t indent =
   | Get (t1, t2) -> "Get " ^ t1 ^ " " ^ t2
   | Put (t1, t2, t3) -> "Put " ^ t1 ^ " " ^ t2 ^ " " ^ t3
   | ExtArray t -> "ExtArray "
+  | ExtTuple t -> "ExtTuple "
 
 let print_fun d =
   let Id.L name, typ = d.name in

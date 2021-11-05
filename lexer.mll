@@ -20,10 +20,10 @@ rule token = parse
     { LPAREN }
 | ')'
     { RPAREN }
-(* | "true"
-    { BOOL(true) }
+| "true"
+    { INT(1) }
 | "false"
-    { BOOL(false) } *)
+    { INT(0) }
 | "not"
     { NOT }
 | digit+ 

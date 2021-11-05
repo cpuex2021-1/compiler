@@ -1,6 +1,6 @@
 type t =
   | Unit
-  | Bool of bool
+  (* | Bool of bool *)
   | Int of int
   | Float of float
   | Not of t
@@ -35,7 +35,7 @@ let rec print_t t indent =
   ^
   match t with
   | Unit -> "UNIT"
-  | Bool b -> "BOOL " ^ string_of_bool b
+  (* | Bool b -> "BOOL " ^ string_of_bool b *)
   | Int i -> "INT " ^ string_of_int i
   | Float f -> "FLOAT " ^ string_of_float f
   | Not t -> "NOT\n" ^ print_t t indent_next
