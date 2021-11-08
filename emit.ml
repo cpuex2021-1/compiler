@@ -30,9 +30,9 @@ let locate x =
   in
   loc !stackmap
 
-let offset x = 4 * List.hd (locate x)
+let offset x = 1 * List.hd (locate x)
 
-let stacksize () = align ((List.length !stackmap + 1) * 4)
+let stacksize () = align ((List.length !stackmap + 1) * 1)
 
 let pp_id_or_imm = function V x -> x | C i -> string_of_int i
 
@@ -233,11 +233,11 @@ and g' oc = function
   | NonTail a, CallCls (x, ys, zs) ->
       g'_args oc [ (x, reg_cl) ] ys zs;
       let ss = stacksize () in
-      Printf.fprintf oc "\tsw %s, %d(%s)\n" reg_ra (ss - 4) reg_sp;
+      Printf.fprintf oc "\tsw %s, %d(%s)\n" reg_ra (ss - 1) reg_sp;
       Printf.fprintf oc "\tlw %s, 0(%s)\n" reg_sw reg_cl;
-      Printf.fprintf oc "\tjalr ra, ra, %s\n" reg_sw;
+      Printf.fprintf oc "\tjal ra, %s\n" reg_sw;
       Printf.fprintf oc "\taddi %s, %s, %d\n" reg_sp reg_sp (-1 * ss);
-      Printf.fprintf oc "\tlw %s, %d(%s)\n" reg_ra (ss - 4) reg_sp;
+      Printf.fprintf oc "\tlw %s, %d(%s)\n" reg_ra (ss - 1) reg_sp;
       if List.mem a allregs && a <> regs.(0) then
         Printf.fprintf oc "\taddi %s, %s, zero\n" a regs.(0)
       else if List.mem a allfregs && a <> fregs.(0) then
@@ -245,10 +245,10 @@ and g' oc = function
   | NonTail a, CallDir (Id.L x, ys, zs) ->
       g'_args oc [] ys zs;
       let ss = stacksize () in
-      Printf.fprintf oc "\tsw %s, %d(%s)\n" reg_ra (ss - 4) reg_sp;
-      Printf.fprintf oc "\tjalr ra, ra, %s\n" x;
+      Printf.fprintf oc "\tsw %s, %d(%s)\n" reg_ra (ss - 1) reg_sp;
+      Printf.fprintf oc "\tjal ra, %s\n" x;
       Printf.fprintf oc "\taddi %s, %s, %d\n" reg_sp reg_sp (-1 * ss);
-      Printf.fprintf oc "\tlw %s, %d(%s)\n" reg_ra (ss - 4) reg_sp;
+      Printf.fprintf oc "\tlw %s, %d(%s)\n" reg_ra (ss - 1) reg_sp;
       if List.mem a allregs && a <> regs.(0) then
         Printf.fprintf oc "\taddi %s, %s, zero\n" a regs.(0)
       else if List.mem a allfregs && a <> fregs.(0) then
@@ -304,7 +304,7 @@ let h oc { name = Id.L x; args = _; fargs = _; body = e; ret = _ } =
 
 let f oc (Prog (data, fundefs, e)) =
   Format.eprintf "generating assembly...@.";
-  Printf.fprintf oc "\tjump min_caml_start";
+  Printf.fprintf oc "\tjump min_caml_start\n";
   List.iter
     (fun (Id.L x, d) ->
       Printf.fprintf oc "%s:\t! %f\n" x d
@@ -315,8 +315,8 @@ let f oc (Prog (data, fundefs, e)) =
     data;
   List.iter (fun fundef -> h oc fundef) fundefs;
   Printf.fprintf oc "min_caml_start:\n";
-  Printf.fprintf oc "\taddi sp, sp, -112\n";
-  (* from gcc; why 112? *)
+  Printf.fprintf oc "\taddi sp, sp, -28\n";
+  (* from gcc; why 112? -> changed to 28 (for no reason)*)
   stackset := [];
   stackmap := [];
   g oc (NonTail "%g0", e);
