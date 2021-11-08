@@ -55,7 +55,7 @@ red2_else:
     jal ra, kernel_cos
 red2_end:
     flt a2, fa0, fa1
-    beq a2, a0, end
+    bne a2, a0, end
     fneg fa0, fa0
 kernel_sin:
     lui t1, 254634
