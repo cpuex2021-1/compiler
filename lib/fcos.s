@@ -44,15 +44,16 @@ red2_br2:
     fle a1, fa4, fa0
     beq a1, zero, red2_br3
     fsub fa0, ft0, fa0
+    sub a0, a2, a0
 red2_br3:
     fdiv fa5, ft0, ft5
     fle a1, fa0, fa5
     beq a1, zero, red2_else
-    jal ra, kernel_sin
+    jal ra, kernel_cos
     jump red2_end
 red2_else: 
     fsub fa0, fa4, fa0
-    jal ra, kernel_cos
+    jal ra, kernel_sin
 red2_end:
     flt a2, fa0, fa1
     beq a2, a0, end
