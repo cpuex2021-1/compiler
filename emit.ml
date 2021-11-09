@@ -93,20 +93,20 @@ and g' oc = function
       | V id -> Printf.fprintf oc "store offset must be immediate\n"
       | C i -> Printf.fprintf oc "\tsw %s, %d(%s)\n" x i y)
   | NonTail x, FMovD y when x = y -> ()
-  | NonTail x, FMovD y -> Printf.fprintf oc "float operation not supported\n"
-  | NonTail x, FNegD y -> Printf.fprintf oc "float operation not supported\n"
-  | NonTail x, FAddD (y, z) ->
-      Printf.fprintf oc "float operation not supported\n"
-  | NonTail x, FSubD (y, z) ->
-      Printf.fprintf oc "float operation not supported\n"
-  | NonTail x, FMulD (y, z) ->
-      Printf.fprintf oc "float operation not supported\n"
-  | NonTail x, FDivD (y, z) ->
-      Printf.fprintf oc "float operation not supported\n"
-  | NonTail x, LdDF (y, z') ->
-      Printf.fprintf oc "float operation not supported\n"
-  | NonTail _, StDF (x, y, z') ->
-      Printf.fprintf oc "float operation not supported\n"
+  | NonTail x, FMovD y -> Printf.fprintf oc "\tfadd %s, %s, fzero\n" x y
+  | NonTail x, FNegD y -> Printf.fprintf oc "\tfneg %s, %s\n" x y
+  | NonTail x, FAddD (y, z) -> Printf.fprintf oc "\tfadd %s, %s, %s\n" x y z
+  | NonTail x, FSubD (y, z) -> Printf.fprintf oc "\tfsub %s, %s, %s\n" x y z
+  | NonTail x, FMulD (y, z) -> Printf.fprintf oc "\tfmul %s, %s, %s\n" x y z
+  | NonTail x, FDivD (y, z) -> Printf.fprintf oc "\tfdiv %s, %s, %s\n" x y z
+  | NonTail x, LdDF (y, z') -> (
+      match z' with
+      | V id -> Printf.fprintf oc "load offset must be immediate\n"
+      | C i -> Printf.fprintf oc "\tflw %s, %d(%s)\n" x i y)
+  | NonTail _, StDF (x, y, z') -> (
+      match z' with
+      | V id -> Printf.fprintf oc "store offset must be immediate\n"
+      | C i -> Printf.fprintf oc "\tfsw %s, %d(%s)\n" x i y)
   | NonTail _, Comment s -> Printf.fprintf oc "\t! %s\n" s
   (* 退避の仮想命令の実装 *)
   | NonTail _, Save (x, y)
@@ -170,10 +170,8 @@ and g' oc = function
       Printf.fprintf oc "%s:\n" b_else;
       stackset := stackset_back;
       g oc (Tail, e2)
-  | Tail, IfFEq (x, y, e1, e2) ->
-      Printf.fprintf oc "float operation not supported\n"
-  | Tail, IfFLE (x, y, e1, e2) ->
-      Printf.fprintf oc "float operation not supported\n"
+  | Tail, IfFEq (x, y, e1, e2) -> Printf.fprintf oc "IfFEq not supported\n"
+  | Tail, IfFLE (x, y, e1, e2) -> Printf.fprintf oc "IfFLE not supported\n"
   | NonTail z, IfEq (x, y', e1, e2) ->
       let b_else = Id.genid "be_else" in
       let b_cont = Id.genid "be_cont" in
@@ -216,10 +214,8 @@ and g' oc = function
       Printf.fprintf oc "%s:\n" b_cont;
       let stackset2 = !stackset in
       stackset := set_inter stackset1 stackset2
-  | NonTail z, IfFEq (x, y, e1, e2) ->
-      Printf.fprintf oc "float operation not supported\n"
-  | NonTail z, IfFLE (x, y, e1, e2) ->
-      Printf.fprintf oc "float operation not supported\n"
+  | NonTail z, IfFEq (x, y, e1, e2) -> Printf.fprintf oc "IfFEq not supported\n"
+  | NonTail z, IfFLE (x, y, e1, e2) -> Printf.fprintf oc "IfFLE not supported\n"
   (* 関数呼び出しの仮想命令の実装 *)
   | Tail, CallCls (x, ys, zs) ->
       (* 末尾呼び出し *)
@@ -239,9 +235,9 @@ and g' oc = function
       Printf.fprintf oc "\taddi %s, %s, %d\n" reg_sp reg_sp (-1 * ss);
       Printf.fprintf oc "\tlw %s, %d(%s)\n" reg_ra (ss - 1) reg_sp;
       if List.mem a allregs && a <> regs.(0) then
-        Printf.fprintf oc "\taddi %s, %s, zero\n" a regs.(0)
+        Printf.fprintf oc "\tadd %s, %s, zero\n" a regs.(0)
       else if List.mem a allfregs && a <> fregs.(0) then
-        Printf.fprintf oc "float operation not supported\n"
+        Printf.fprintf oc "\tfadd %s, %s, fzero\n" a regs.(0)
   | NonTail a, CallDir (Id.L x, ys, zs) ->
       g'_args oc [] ys zs;
       let ss = stacksize () in
@@ -250,9 +246,9 @@ and g' oc = function
       Printf.fprintf oc "\taddi %s, %s, %d\n" reg_sp reg_sp (-1 * ss);
       Printf.fprintf oc "\tlw %s, %d(%s)\n" reg_ra (ss - 1) reg_sp;
       if List.mem a allregs && a <> regs.(0) then
-        Printf.fprintf oc "\taddi %s, %s, zero\n" a regs.(0)
+        Printf.fprintf oc "\tadd %s, %s, zero\n" a regs.(0)
       else if List.mem a allfregs && a <> fregs.(0) then
-        Printf.fprintf oc "float operation not supported\n"
+        Printf.fprintf oc "\tfadd %s, %s, fzero\n" a regs.(0)
 
 and g'_tail_if oc e1 e2 b bn =
   let b_else = Id.genid (b ^ "_else") in
@@ -293,7 +289,9 @@ and g'_args oc x_reg_cl ys zs =
       (0, []) zs
   in
   List.iter
-    (fun (z, fr) -> Printf.fprintf oc "float operation not supported\n")
+    (fun (z, fr) ->
+      Printf.fprintf oc "\tfmv %s, %s\n" z fr;
+      Printf.fprintf oc "\tfmv %s, %s\n" (co_freg z) (co_freg fr))
     (shuffle reg_fsw zfrs)
 
 let h oc { name = Id.L x; args = _; fargs = _; body = e; ret = _ } =
