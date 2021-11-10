@@ -258,8 +258,7 @@ and print_t t =
   match t with
   | Asm.Ans e -> print_exp e
   | Asm.Let ((id, typ), e, t') ->
-      print_endline (id ^ ": " ^ Type.print typ ^ " = " ^ print_exp e ^ " \n");
-      print_t t'
+      (id ^ ": " ^ Type.print typ ^ " = " ^ print_exp e ^ " \n") ^ print_t t'
 
 let print_fun d =
   let (Id.L name) = d.Asm.name in

@@ -83,3 +83,5 @@ parser.mli
 parser.output
 
 *.s
+output/*.txt
+output/*.s
