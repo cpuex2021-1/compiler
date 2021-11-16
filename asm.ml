@@ -52,27 +52,32 @@ let regs =
   [|
     "a0";
     "a1";
-    "s0";
-    "s1";
-    "s2";
-    "s3";
-    "s4";
-    "s5";
-    "s6";
-    "s7";
-    "s8";
-    "s9";
-    "s10";
-    "s11";
-    "s12";
-    "s13";
-    "s14";
-    "s15";
-    "s16";
-    "s17";
+    "a2";
+    "a3";
+    "a4";
+    "a5";
+    "a6";
+    "a7";
+    "a8";
+    "a9";
+    "a10";
+    "a11";
+    "a12";
+    "a13";
+    "a14";
+    "a15";
+    "a16";
+    "a17";
+    "a18";
+    "a19";
+    "a20";
+    "a21";
+    "a22";
+    "cl";
+    "sw";
   |]
 
-let fregs = Array.init 16 (fun i -> Printf.sprintf "%%f%d" (i * 2))
+let fregs = Array.init 27 (fun i -> Printf.sprintf "f%d" i)
 
 let allregs = Array.to_list regs
 
@@ -88,7 +93,7 @@ let reg_sp = "sp"
 
 let reg_hp = "hp"
 
-let reg_ra = "a0"
+let reg_ra = "ra"
 
 let is_reg x =
   Array.exists (fun a -> a = x) regs
@@ -99,8 +104,8 @@ let co_freg_table =
   let ht = Hashtbl.create 16 in
   for i = 0 to 15 do
     Hashtbl.add ht
-      (Printf.sprintf "%%f%d" (i * 2))
-      (Printf.sprintf "%%f%d" ((i * 2) + 1))
+      (Printf.sprintf "f%d" (i * 2))
+      (Printf.sprintf "f%d" ((i * 2) + 1))
   done;
   ht
 
