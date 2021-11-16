@@ -107,7 +107,7 @@ and g' oc = function
       match z' with
       | V id -> Printf.fprintf oc "store offset must be immediate\n"
       | C i -> Printf.fprintf oc "\tfsw %s, %d(%s)\n" x i y)
-  | NonTail _, Comment s -> Printf.fprintf oc "\t! %s\n" s
+  | NonTail _, Comment s -> Printf.fprintf oc "\t# %s\n" s
   (* 退避の仮想命令の実装 *)
   | NonTail _, Save (x, y)
     when List.mem x allregs && not (set_exist y !stackset) ->
@@ -129,23 +129,23 @@ and g' oc = function
   (* 末尾だったら計算結果を第一レジスタにセットしてret *)
   | Tail, ((Nop | St _ | StDF _ | Comment _ | Save _) as exp) ->
       g' oc (NonTail (Id.gentmp Type.Unit), exp);
-      Printf.fprintf oc "\tjalr zero, ra, 0 ! ret\n"
+      Printf.fprintf oc "\tjalr zero, ra, 0 # ret\n"
   | ( Tail,
       ((Set _ | SetL _ | Mov _ | Neg _ | Add _ | Sub _ | SLL _ | Ld _) as exp) )
     ->
       g' oc (NonTail regs.(0), exp);
-      Printf.fprintf oc "\tjalr zero, ra, 0 ! ret\n"
+      Printf.fprintf oc "\tjalr zero, ra, 0 # ret\n"
   | ( Tail,
       ((FMovD _ | FNegD _ | FAddD _ | FSubD _ | FMulD _ | FDivD _ | LdDF _) as
       exp) ) ->
       g' oc (NonTail fregs.(0), exp);
-      Printf.fprintf oc "\tjalr zero, ra, 0 ! ret\n"
+      Printf.fprintf oc "\tjalr zero, ra, 0 # ret\n"
   | Tail, (Restore x as exp) ->
       (match locate x with
       | [ i ] -> g' oc (NonTail regs.(0), exp)
       | [ i; j ] when i + 1 = j -> g' oc (NonTail fregs.(0), exp)
       | _ -> assert false);
-      Printf.fprintf oc "\tjalr zero, ra, 0 ! ret\n"
+      Printf.fprintf oc "\tjalr zero, ra, 0 # ret\n"
   | Tail, IfEq (x, y', e1, e2) ->
       let b_else = Id.genid "be_else" in
       Printf.fprintf oc "\tbne %s, %s, %s\n" x (pp_id_or_imm y') b_else;
@@ -231,7 +231,7 @@ and g' oc = function
       let ss = stacksize () in
       Printf.fprintf oc "\tsw %s, %d(%s)\n" reg_ra (ss - 1) reg_sp;
       Printf.fprintf oc "\tlw %s, 0(%s)\n" reg_sw reg_cl;
-      Printf.fprintf oc "\tjal ra, %s ! call\n" reg_sw;
+      Printf.fprintf oc "\tjal ra, %s # call\n" reg_sw;
       (* Printf.fprintf oc "\taddi %s, %s, %d\n" reg_sp reg_sp (-1 * ss); *)
       Printf.fprintf oc "\tlw %s, %d(%s)\n" reg_ra (ss - 1) reg_sp;
       if List.mem a allregs && a <> regs.(0) then
@@ -242,7 +242,7 @@ and g' oc = function
       g'_args oc [] ys zs;
       let ss = stacksize () in
       Printf.fprintf oc "\tsw %s, %d(%s)\n" reg_ra (ss - 1) reg_sp;
-      Printf.fprintf oc "\tjal ra, %s ! call\n" x;
+      Printf.fprintf oc "\tjal ra, %s # call\n" x;
       (* Printf.fprintf oc "\taddi %s, %s, %d\n" reg_sp reg_sp (-1 * ss); *)
       Printf.fprintf oc "\tlw %s, %d(%s)\n" reg_ra (ss - 1) reg_sp;
       if List.mem a allregs && a <> regs.(0) then
@@ -305,10 +305,10 @@ let f oc (Prog (data, fundefs, e)) =
   Printf.fprintf oc "\tjump min_caml_start\n";
   Printf.fprintf oc "print_int:\n";
   Printf.fprintf oc "\tlw s0, 0(zero)\n";
-  Printf.fprintf oc "\tjalr zero, ra, 0 ! ret\n";
+  Printf.fprintf oc "\tjalr zero, ra, 0 # ret\n";
   List.iter
     (fun (Id.L x, d) ->
-      Printf.fprintf oc "%s:\t! %f\n" x d
+      Printf.fprintf oc "%s:\t# %f\n" x d
       (*
       Printf.fprintf oc "\t.long\t0x%lx\n" (gethi d);
       Printf.fprintf oc "\t.long\t0x%lx\n" (getlo d)
@@ -321,4 +321,4 @@ let f oc (Prog (data, fundefs, e)) =
   stackset := [];
   stackmap := [];
   g oc (NonTail "%g0", e);
-  Printf.fprintf oc "\tjalr zero, ra, 0 ! ret\n"
+  Printf.fprintf oc "\tjalr zero, ra, 0 # ret\n"
