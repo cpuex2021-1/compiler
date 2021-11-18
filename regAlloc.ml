@@ -55,11 +55,11 @@ let rec alloc dest cont regenv x t =
   assert (not (env_exists x regenv));
   let all =
     match t with
-    | Type.Unit -> [ "%g0" ] (* dummy *)
+    | Type.Unit -> [ "dummy" ]
     | Type.Float -> allfregs
     | _ -> allregs
   in
-  if all = [ "%g0" ] then Alloc "%g0"
+  if all = [ "dummy" ] then Alloc "dummy"
   else if (* [XX] ad hoc optimization *)
           is_reg x then Alloc x
   else
