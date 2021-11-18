@@ -21,7 +21,7 @@ let expand xts ini addf addi =
     (fun (offset, acc) x ->
       let offset = Asm.align offset in
       (offset + 8, addf x offset acc))
-    (fun (offset, acc) x t -> (offset + 4, addi x t offset acc))
+    (fun (offset, acc) x t -> (offset + 1, addi x t offset acc))
 
 let rec log2 n = if n = 1 then 0 else 1 + log2 (n / 2)
 
@@ -83,7 +83,7 @@ let rec g env = function
       let offset, store_fv =
         expand
           (List.map (fun y -> (y, env_find y env)) ys)
-          (4, e2')
+          (1, e2')
           (fun y offset store_fv ->
             Asm.seq (Asm.StDF (y, x, Asm.C offset), store_fv))
           (fun y _ offset store_fv ->
@@ -179,7 +179,7 @@ let h
   let int, float = separate yts in
   let offset, load =
     expand zts
-      (4, g (env_add x t (add_list yts (add_list zts []))) e)
+      (1, g (env_add x t (add_list yts (add_list zts []))) e)
       (fun z offset load ->
         Asm.fletd (z, Asm.LdDF (Asm.reg_cl, Asm.C offset), load))
       (fun z t offset load ->
@@ -214,8 +214,8 @@ let rec print_exp e =
   | Asm.Add (t, i) -> "add " ^ t ^ " " ^ print_i i
   | Asm.Sub (t, i) -> "sub " ^ t ^ " " ^ print_i i
   | Asm.SLL (t, i) -> "sll " ^ t ^ " " ^ print_i i
-  | Asm.Ld (t, i) -> "ld " ^ t ^ " " ^ print_i i
-  | Asm.St (t1, t2, i) -> "st " ^ t1 ^ " " ^ t2 ^ " " ^ print_i i
+  | Asm.Ld (t, i) -> "load " ^ t ^ " " ^ print_i i
+  | Asm.St (t1, t2, i) -> "store " ^ t1 ^ " " ^ t2 ^ " " ^ print_i i
   | Asm.FMovD t -> "fmovd " ^ t
   | Asm.FNegD t -> "fnegd " ^ t
   | Asm.FAddD (t1, t2) -> "faddd " ^ t1 ^ " " ^ t2
@@ -259,8 +259,7 @@ and print_t t =
   match t with
   | Asm.Ans e -> print_exp e
   | Asm.Let ((id, typ), e, t') ->
-      (id (* ^ ": " ^ Type.print typ *) ^ " = " ^ print_exp e ^ " \n")
-      ^ print_t t'
+      (id ^ ": " ^ Type.print typ ^ " = " ^ print_exp e ^ " \n") ^ print_t t'
 
 let print_fun d =
   let (Id.L name) = d.Asm.name in
