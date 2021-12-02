@@ -10,7 +10,7 @@ set_param:
     fmv.w.x ft6, t6
 flag:
     fmv.w.x fa1, zero
-    flt a0, fa1, fa0
+    flt a0, fa0, fa1
     beq a0, zero, red1
 neg:
     fneg fa0, fa0
@@ -36,7 +36,7 @@ red1_end:
 red2:
     fle a1, ft0, fa0
     beq a1, zero, red2_br2
-    fsub fa0, ft0, fa0
+    fsub fa0, fa0, ft0
     addi a2, zero, 1
     sub a0, a2, a0
 red2_br2:
@@ -45,7 +45,7 @@ red2_br2:
     beq a1, zero, red2_br3
     fsub fa0, ft0, fa0
 red2_br3:
-    fdiv fa5, ft0, ft5
+    fdiv fa5, fa4, ft5
     fle a1, fa0, fa5
     beq a1, zero, red2_else
     jal ra, kernel_sin
@@ -57,8 +57,9 @@ red2_end:
     flt a2, fa0, fa1
     beq a2, a0, end
     fneg fa0, fa0
+    jump end
 kernel_sin:
-    lui t1, 254634
+    lui t1, 778922
     addi t1, t1, 2732
     lui t2, 245896
     addi t2, t2, 1638
