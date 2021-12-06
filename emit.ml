@@ -32,7 +32,7 @@ let locate x =
 
 let offset x = 1 * List.hd (locate x)
 
-let stacksize () = align ((List.length !stackmap + 1) * 1)
+let stacksize () = align ((List.length !stackmap) * 1)
 
 let pp_id_or_imm = function V x -> x | C i -> string_of_int i
 
@@ -231,9 +231,9 @@ and g' oc = function
       let ss = stacksize () in
       Printf.fprintf oc "\tsw %s, %d(%s)\n" reg_ra (-ss) reg_sp;
       Printf.fprintf oc "\tlw %s, 0(%s)\n" reg_sw reg_cl;
-      Printf.fprintf oc "\taddi %s, %s, %d\n" reg_sp reg_sp (-1 * ss);
+      Printf.fprintf oc "\taddi %s, %s, %d\n" reg_sp reg_sp (-1 * ss - 1);
       Printf.fprintf oc "\tjal ra, %s # call\n" reg_sw;
-      Printf.fprintf oc "\taddi %s, %s, %d\n" reg_sp reg_sp ss;
+      Printf.fprintf oc "\taddi %s, %s, %d\n" reg_sp reg_sp (ss + 1);
       Printf.fprintf oc "\tlw %s, %d(%s)\n" reg_ra (-ss) reg_sp;
       if List.mem a allregs && a <> regs.(0) then
         Printf.fprintf oc "\tadd %s, %s, zero\n" a regs.(0)
@@ -241,11 +241,11 @@ and g' oc = function
         Printf.fprintf oc "\tfadd %s, %s, fzero\n" a regs.(0)
   | NonTail a, CallDir (Id.L x, ys, zs) ->
       g'_args oc [] ys zs;
-      let ss = stacksize () in
+      let ss = stacksize () in 
       Printf.fprintf oc "\tsw %s, %d(%s)\n" reg_ra (-ss) reg_sp;
-      Printf.fprintf oc "\taddi %s, %s, %d\n" reg_sp reg_sp (-1 * ss);
+      Printf.fprintf oc "\taddi %s, %s, %d\n" reg_sp reg_sp (-1 * ss - 1);
       Printf.fprintf oc "\tjal ra, %s # call\n" x;
-      Printf.fprintf oc "\taddi %s, %s, %d\n" reg_sp reg_sp ss;
+      Printf.fprintf oc "\taddi %s, %s, %d\n" reg_sp reg_sp (ss + 1);
       Printf.fprintf oc "\tlw %s, %d(%s)\n" reg_ra (-ss) reg_sp;
       if List.mem a allregs && a <> regs.(0) then
         Printf.fprintf oc "\tadd %s, %s, zero\n" a regs.(0)
@@ -306,7 +306,7 @@ let f oc (Prog (data, fundefs, e)) =
   Format.eprintf "generating assembly...@.";
   Printf.fprintf oc "\tjump min_caml_start\n";
   Printf.fprintf oc "print_int:\n";
-  Printf.fprintf oc "\tlw s0, 0(zero)\n";
+  Printf.fprintf oc "\tsw a0, 0(zero)\n";
   Printf.fprintf oc "\tjalr zero, ra, 0 # ret\n";
   List.iter
     (fun (Id.L x, d) ->
