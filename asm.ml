@@ -101,11 +101,11 @@ let is_reg x =
   || x = reg_sp || x = reg_hp || x = reg_ra
 
 let co_freg_table =
-  let ht = Hashtbl.create 16 in
-  for i = 0 to 15 do
+  let ht = Hashtbl.create 13 in
+  for i = 0 to 12 do
     Hashtbl.add ht
-      (Printf.sprintf "f%d" (i * 2))
-      (Printf.sprintf "f%d" ((i * 2) + 1))
+      (Printf.sprintf "f%d" i)
+      (Printf.sprintf "f%d" (i + 13))
   done;
   ht
 
