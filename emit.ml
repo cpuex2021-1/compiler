@@ -86,11 +86,11 @@ and g' oc = function
       | C i -> Printf.fprintf oc "\tslli %s, %s, %d\n" x y i)
   | NonTail x, Ld (y, z') -> (
       match z' with
-      | V id -> Printf.fprintf oc "load offset must be immediate\n"
+      | V id -> Printf.fprintf oc "\tlwi %s, %s(%s)\n" x id y
       | C i -> Printf.fprintf oc "\tlw %s, %d(%s)\n" x i y)
   | NonTail _, St (x, y, z') -> (
       match z' with
-      | V id -> Printf.fprintf oc "store offset must be immediate\n"
+      | V id -> Printf.fprintf oc "\tswi %s, %s(%s)\n" x id y
       | C i -> Printf.fprintf oc "\tsw %s, %d(%s)\n" x i y)
   | NonTail x, FMovD y when x = y -> ()
   | NonTail x, FMovD y -> Printf.fprintf oc "\tfadd %s, %s, fzero\n" x y
@@ -101,11 +101,11 @@ and g' oc = function
   | NonTail x, FDivD (y, z) -> Printf.fprintf oc "\tfdiv %s, %s, %s\n" x y z
   | NonTail x, LdDF (y, z') -> (
       match z' with
-      | V id -> Printf.fprintf oc "load offset must be immediate\n"
+      | V id -> Printf.fprintf oc "\tlwi %s, %s(%s)\n" x id y
       | C i -> Printf.fprintf oc "\tflw %s, %d(%s)\n" x i y)
   | NonTail _, StDF (x, y, z') -> (
       match z' with
-      | V id -> Printf.fprintf oc "store offset must be immediate\n"
+      | V id -> Printf.fprintf oc "\tswi %s, %s(%s)\n" x id y
       | C i -> Printf.fprintf oc "\tfsw %s, %d(%s)\n" x i y)
   | NonTail _, Comment s -> Printf.fprintf oc "\t# %s\n" s
   (* 退避の仮想命令の実装 *)
