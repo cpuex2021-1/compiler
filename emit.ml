@@ -30,7 +30,7 @@ let locate x =
   in
   loc !stackmap
 
-let offset x = 1 * List.hd (locate x)
+let offset x = -1 * List.hd (locate x)
 
 let stacksize () = align ((List.length !stackmap) * 1)
 
