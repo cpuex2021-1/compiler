@@ -77,7 +77,7 @@ let regs =
     "sw";
   |]
 
-let fregs = Array.init 27 (fun i -> Printf.sprintf "f%d" i)
+let fregs = Array.init 13 (fun i -> Printf.sprintf "f%d" i)
 
 let allregs = Array.to_list regs
 
