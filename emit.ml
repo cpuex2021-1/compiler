@@ -319,7 +319,7 @@ let f oc (Prog (data, fundefs, e)) =
   List.iter
     (fun (Id.L x, d) ->
       Printf.fprintf oc "%s:\t# %f\n" x d;
-      Printf.fprintf oc "\t.long %f\n" d)
+      Printf.fprintf oc "\tfli a0, %f\n" d)
     data;
   List.iter (fun fundef -> h oc fundef) fundefs;
   Printf.fprintf oc "min_caml_start:\n";
