@@ -32,7 +32,7 @@ let locate x =
 
 let offset x = -1 * List.hd (locate x)
 
-let stacksize () = align ((List.length !stackmap) * 1)
+let stacksize () = align (List.length !stackmap * 1)
 
 let pp_id_or_imm = function V x -> x | C i -> string_of_int i
 
@@ -86,11 +86,15 @@ and g' oc = function
       | C i -> Printf.fprintf oc "\tslli %s, %s, %d\n" x y i)
   | NonTail x, Ld (y, z') -> (
       match z' with
-      | V id -> Printf.fprintf oc "\tlwi %s, %s(%s)\n" x id y
+      | V id ->
+          Printf.fprintf oc "\tadd a22, %s, %s\n" id y;
+          Printf.fprintf oc "\tlw %s, 0(a22)\n" x
       | C i -> Printf.fprintf oc "\tlw %s, %d(%s)\n" x i y)
   | NonTail _, St (x, y, z') -> (
       match z' with
-      | V id -> Printf.fprintf oc "\tswi %s, %s(%s)\n" x id y
+      | V id ->
+          Printf.fprintf oc "\tadd a22, %s, %s\n" id y;
+          Printf.fprintf oc "\tsw %s, 0(a22)\n" x
       | C i -> Printf.fprintf oc "\tsw %s, %d(%s)\n" x i y)
   | NonTail x, FMovD y when x = y -> ()
   | NonTail x, FMovD y -> Printf.fprintf oc "\tfadd %s, %s, fzero\n" x y
@@ -101,11 +105,15 @@ and g' oc = function
   | NonTail x, FDivD (y, z) -> Printf.fprintf oc "\tfdiv %s, %s, %s\n" x y z
   | NonTail x, LdDF (y, z') -> (
       match z' with
-      | V id -> Printf.fprintf oc "\tlwi %s, %s(%s)\n" x id y
+      | V id ->
+          Printf.fprintf oc "\tadd a22, %s, %s\n" id y;
+          Printf.fprintf oc "\tlw %s, 0(a22)\n" x
       | C i -> Printf.fprintf oc "\tflw %s, %d(%s)\n" x i y)
   | NonTail _, StDF (x, y, z') -> (
       match z' with
-      | V id -> Printf.fprintf oc "\tswi %s, %s(%s)\n" x id y
+      | V id ->
+          Printf.fprintf oc "\tadd a22, %s, %s\n" id y;
+          Printf.fprintf oc "\tsw %s, 0(a22)\n" x
       | C i -> Printf.fprintf oc "\tfsw %s, %d(%s)\n" x i y)
   | NonTail _, Comment s -> Printf.fprintf oc "\t# %s\n" s
   (* 退避の仮想命令の実装 *)
@@ -231,7 +239,7 @@ and g' oc = function
       let ss = stacksize () in
       Printf.fprintf oc "\tsw %s, %d(%s)\n" reg_ra (-ss) reg_sp;
       Printf.fprintf oc "\tlw %s, 0(%s)\n" reg_sw reg_cl;
-      Printf.fprintf oc "\taddi %s, %s, %d\n" reg_sp reg_sp (-1 * ss - 1);
+      Printf.fprintf oc "\taddi %s, %s, %d\n" reg_sp reg_sp ((-1 * ss) - 1);
       Printf.fprintf oc "\tjal ra, %s # call\n" reg_sw;
       Printf.fprintf oc "\taddi %s, %s, %d\n" reg_sp reg_sp (ss + 1);
       Printf.fprintf oc "\tlw %s, %d(%s)\n" reg_ra (-ss) reg_sp;
@@ -241,9 +249,9 @@ and g' oc = function
         Printf.fprintf oc "\tfadd %s, %s, fzero\n" a regs.(0)
   | NonTail a, CallDir (Id.L x, ys, zs) ->
       g'_args oc [] ys zs;
-      let ss = stacksize () in 
+      let ss = stacksize () in
       Printf.fprintf oc "\tsw %s, %d(%s)\n" reg_ra (-ss) reg_sp;
-      Printf.fprintf oc "\taddi %s, %s, %d\n" reg_sp reg_sp (-1 * ss - 1);
+      Printf.fprintf oc "\taddi %s, %s, %d\n" reg_sp reg_sp ((-1 * ss) - 1);
       Printf.fprintf oc "\tjal ra, %s # call\n" x;
       Printf.fprintf oc "\taddi %s, %s, %d\n" reg_sp reg_sp (ss + 1);
       Printf.fprintf oc "\tlw %s, %d(%s)\n" reg_ra (-ss) reg_sp;
