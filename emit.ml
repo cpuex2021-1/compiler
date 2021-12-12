@@ -67,7 +67,7 @@ and g' oc = function
   (* 各命令のアセンブリ生成 *)
   (* 末尾でなかったら計算結果をdestにセット *)
   | NonTail _, Nop -> ()
-  | NonTail x, Set i -> Printf.fprintf oc "\taddi %s, zero, %d\n" x i
+  | NonTail x, Set i -> Printf.fprintf oc "\tli %s, %d\n" x i
   | NonTail x, SetL (Id.L y) -> Printf.fprintf oc "\tla %s, %s\n" x y
   | NonTail x, Mov y when x = y -> ()
   | NonTail x, Mov y -> Printf.fprintf oc "\tadd %s, %s, zero\n" x y
