@@ -59,7 +59,8 @@ let rec fv = function
   | MakeCls ((x, t), { entry = l; actual_fv = ys }, e) ->
       set_remove x (set_union ys (fv e))
   | AppCls (x, ys) -> x :: ys
-  | AppDir (_, xs) | Tuple xs -> xs
+  | AppDir (Id.L x, ys) -> x :: ys
+  | Tuple xs -> xs
   | LetTuple (xts, y, e) -> set_add y (set_diff (fv e) (List.map fst xts))
   | Put (x, y, z) -> [ x; y; z ]
 
