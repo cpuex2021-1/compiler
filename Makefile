@@ -7,6 +7,7 @@ SOURCES = \
 	parser.mly \
 	typeCheck.ml \
 	normalize.ml \
+	opt.ml \
 	closure.ml \
 	asm.ml \
 	virtual.ml \

@@ -29,8 +29,15 @@ let compile in_channel out_channel =
     Printf.fprintf oc "[Alpha Transformed]";
     Printf.fprintf oc "%s\n" (Normalize.print transformed));
 
+  (* Normalize.t -> Normalize.t *)
+  let optimized = Opt.f transformed 1000 in
+  if !verbose then (
+    let oc = open_out "output/04.5-optimized.txt" in
+    Printf.fprintf oc "[Optimized]";
+    Printf.fprintf oc "%s\n" (Normalize.print optimized));
+
   (* Normalize.t -> Closure.prog *)
-  let closured = Closure.f transformed in
+  let closured = Closure.f optimized in
   if !verbose then (
     let oc = open_out "output/05-closured.txt" in
     Printf.fprintf oc "[Closured]";
