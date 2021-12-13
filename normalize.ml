@@ -30,6 +30,31 @@ type t =
 
 and fundef = { name : Id.t * Type.t; args : (Id.t * Type.t) list; body : t }
 
+let rec fv = function
+  | Unit | Int _ | Float _ | ExtArray _ | ExtTuple _ -> []
+  | Neg x | FNeg x -> [ x ]
+  | Add (x, y)
+  | Sub (x, y)
+  | Mul (x, y)
+  | Div (x, y)
+  | FAdd (x, y)
+  | FSub (x, y)
+  | FMul (x, y)
+  | FDiv (x, y)
+  | Get (x, y) ->
+      [ x; y ]
+  | IfEq (x, y, e1, e2) | IfLE (x, y, e1, e2) ->
+      set_add x (set_add y (set_union (fv e1) (fv e2)))
+  | Let ((x, t), e1, e2) -> set_union (fv e1) (set_remove x (fv e2))
+  | Var x -> [ x ]
+  | LetRec ({ name = x, t; args = yts; body = e1 }, e2) ->
+      let zs = set_diff (fv e1) (List.map fst yts) in
+      set_diff (set_union zs (fv e2)) [ x ]
+  | App (x, ys) -> x :: ys
+  | Tuple xs | ExtFunApp (_, xs) -> xs
+  | Put (x, y, z) -> [ x; y; z ]
+  | LetTuple (xs, y, e) -> set_add y (set_diff (fv e) (List.map fst xs))
+
 let insert_let (exp, typ) func =
   match exp with
   | Var x -> func x
@@ -128,7 +153,7 @@ let rec kNorm_ env exp =
           insert_let g_e1 (fun f ->
               let rec bind xs es =
                 match es with
-                | [] -> (ExtFunApp (f, xs), t)
+                | [] -> (App (f, xs), t)
                 | e2 :: e2s ->
                     insert_let (kNorm_ env e2) (fun x -> bind (xs @ [ x ]) e2s)
               in
