@@ -1,5 +1,7 @@
 let verbose = ref false
 
+let iter = ref 0
+
 let compile in_channel out_channel =
   let lexbuf = Lexing.from_channel in_channel in
   let parsed = Parser.exp Lexer.token lexbuf in
@@ -30,7 +32,7 @@ let compile in_channel out_channel =
     Printf.fprintf oc "%s\n" (Normalize.print transformed));
 
   (* Normalize.t -> Normalize.t *)
-  let optimized = Opt.f transformed 1000 in
+  let optimized = Opt.f transformed !iter in
   if !verbose then (
     let oc = open_out "output/04.5-optimized.txt" in
     Printf.fprintf oc "[Optimized]";
@@ -72,6 +74,9 @@ let () =
       ( "-v",
         Arg.Bool (fun i -> verbose := i),
         "whether to output interim program" );
+      ( "-i",
+        Arg.Int (fun i -> iter := i),
+        "the number of iterations for optimization" );
     ]
     (fun s -> f := s)
     "";
