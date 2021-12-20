@@ -45,12 +45,9 @@ let rec shuffle sw xys =
   | [], [] -> []
   | (x, y) :: xys, [] ->
       (* no acyclic moves; resolve a cyclic move *)
-      (y, sw)
-      ::
-      (x, y)
-      ::
-      shuffle sw
-        (List.map (function y', z when y = y' -> (sw, z) | yz -> yz) xys)
+      (y, sw) :: (x, y)
+      :: shuffle sw
+           (List.map (function y', z when y = y' -> (sw, z) | yz -> yz) xys)
   | xys, acyc -> acyc @ shuffle sw xys
 
 type dest = Tail | NonTail of Id.t
@@ -240,7 +237,7 @@ and g' oc = function
       Printf.fprintf oc "\tsw %s, %d(%s)\n" reg_ra (-ss) reg_sp;
       Printf.fprintf oc "\tlw %s, 0(%s)\n" reg_sw reg_cl;
       Printf.fprintf oc "\taddi %s, %s, %d\n" reg_sp reg_sp ((-1 * ss) - 1);
-      Printf.fprintf oc "\tjal ra, %s # call\n" reg_sw;
+      Printf.fprintf oc "\tjal ra, %s # call\n" x;
       Printf.fprintf oc "\taddi %s, %s, %d\n" reg_sp reg_sp (ss + 1);
       Printf.fprintf oc "\tlw %s, %d(%s)\n" reg_ra (-ss) reg_sp;
       if List.mem a allregs && a <> regs.(0) then
