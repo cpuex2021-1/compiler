@@ -74,7 +74,7 @@ let regs =
     "a21";
     (* "a22"; *)
     "cl";
-    "sw";
+    "swp";
   |]
 
 let fregs = Array.init 13 (fun i -> Printf.sprintf "f%d" i)
@@ -103,9 +103,7 @@ let is_reg x =
 let co_freg_table =
   let ht = Hashtbl.create 13 in
   for i = 0 to 12 do
-    Hashtbl.add ht
-      (Printf.sprintf "f%d" i)
-      (Printf.sprintf "f%d" (i + 13))
+    Hashtbl.add ht (Printf.sprintf "f%d" i) (Printf.sprintf "f%d" (i + 13))
   done;
   ht
 
