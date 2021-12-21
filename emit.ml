@@ -327,5 +327,5 @@ let f oc (Prog (data, fundefs, e)) =
   (* from gcc; why 112? -> changed to 28 (for no reason)*)
   stackset := [];
   stackmap := [];
-  g oc (NonTail "%g0", e);
+  g oc (NonTail "a0", e);
   Printf.fprintf oc "\tjalr zero, ra, 0 # ret\n"
