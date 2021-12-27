@@ -11,7 +11,8 @@ fneg:
     fneg f0, f0
     jalr zero, ra, 0
 fabs:
-    flt f0, fzero, fabs_l1
+    flt a1, f0, fzero
+    bne fabs_l1, zero, fabs_l1
     jalr zero, ra, 0
 fabs_l1:
     fli f1, -1

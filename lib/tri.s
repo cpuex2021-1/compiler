@@ -1,5 +1,10 @@
 fsgnj: # val of f0, sign of f1
-
+    flt a0, fzero, f0
+    flt a1, fzero, f1
+    beq a0, a1, fsgnj_l1
+    fneg f0, f0
+fsgnj_l1:
+    jalr zero, ra, 0
 kernel_sin: #f0=x f1=flag
     fmul f2, f0, f0
     fmul f3, f0, f2
@@ -31,16 +36,18 @@ kernel_cos: #f0=x f1=flag
     fadd f0, f6, f8
     jump fsgnj
 reduction_2pi: #f0=x f1=p a0=is_p_updating
-    li a1, 0
-	beq a0, a1, reduction_2pi_l1
-	flt f0, f1, reduction_2pi_l0_1
+	beq a0, zero, reduction_2pi_l1
+	flt a1, f0, f1
+    bne a1, zero, reduction_2pi_l0_1
     fli f2, 2.0
     fmul f1, f1, f2
     jump reduction_2pi
 reduction_2pi_l0_1:
     fli f2, 6.2831853
-    flt f0, f2, reduction_2pi_l0_3
-    flt f0, f1, reduction_2pi_l0_2
+    flt a1, f0, f2
+    bne a1, zero, reduction_2pi_l0_3
+    flt a1, f0, f1
+    bne a1, zero, reduction_2pi_l0_2
     fsub f0, f0, f1
     fli f2, 2.0
     fdiv f1, f1, f2
@@ -55,8 +62,10 @@ reduction_2pi_l0_3:
     jalr zero, ra, 0
 reduction_2pi_l1:
 	fli f2, 6.2831853
-    flt f0, f2, reduction_2pi_l1_2
-    flt f0, f1, reduction_2pi_l1_1
+    flt a1, f0, f2
+    bne a1, zero, reduction_2pi_l1_2
+    flt a1, f0, f1
+    bne a1, zero, reduction_2pi_l1_1
     fsub f0, f0, f1
     fli f2, 2.0
     fdiv f1, f1, f2
@@ -85,11 +94,14 @@ sin:
 	flw f1, 0(sp)
     # f0=x, f1=x_orig
     fli f2, 3.14159265
-    flt f0, f2, sin_l1
+    flt a1, f0, f2
+    bne a1, zero, sin_l1
     fli f3, 1.570796325
-    flt f0, f3, sin_l0_1
+    flt a1, f0, f3
+    bne a1, zero, sin_l0_1
     fli f4, 5.49778713750000048
-    flt, f0, f4, sin_l0_0_1
+    flt a1, f0, f4
+    bne a1, zero, sin_l0_0_1
     fli f2, 6.2831853
     fsub f0, f2, f0
     fneg f1, f1
@@ -101,7 +113,8 @@ sin_l0_0_1:
     jump kernel_cos
 sin_l0_1:
     fli f4, 3.9269908125
-    flt f0, f4, sin_l0_2
+    flt a1, f0, f4
+    bne a1, zero, sin_l0_2
     fsub f0, f0, f2
     fneg f1, f1
     jump kernel_sin
@@ -112,9 +125,11 @@ sin_l0_2:
     jump kernel_cos
 sin_l1:
     fli f3, 1.570796325
-    flt f0, f3, sin_l2
+    flt a1, f0, f3
+    bne a1, zero, sin_l2
     fli f4, 2.35619448750000027
-    flt f0, f4, sin_l1_1
+    flt a1, f0, f4
+    bne a1, zero, sin_l1_1
     fsub f0, f2, f0
     jump kernel_sin
 sin_l1_1:
@@ -122,7 +137,8 @@ sin_l1_1:
     jump kernel_cos
 sin_l2:
     fli f3, 0.7853981625
-    flt f0, f3, sin_l3
+    flt a1, f0, f3
+    bne a1, zero, sin_l3
     jump kernel_cos
 sin_l3:
     fsub f0, f2, f0
@@ -143,11 +159,14 @@ cos:
 	flw f1, 0(sp)
     # f0=x, f1=x_orig
     fli f2, 1.570796325
-    flt f0, f2, cos_l1
+    flt a1, f0, f2
+    bne a1, zero, cos_l1
     fli f3, 4.71238897500000053
-    flt f0, f3, cos_l0_1
+    flt a1, f0, f3
+    bne a1, zero, cos_l0_1
     fli f4, 5.49778713750000048
-    flt, f0, f4, cos_l0_0_1
+    flt a1, f0, f4
+    bne a1, zero, cos_l0_0_1
     fli f2, 6.2831853
     fsub f0, f2, f0
     fli f1, -1.0
@@ -159,7 +178,8 @@ cos_l0_0_1:
     jump kernel_sin
 cos_l0_1:
     fli f4, 2.51327412
-    flt f4, f0, cos_l0_2
+    flt a1, f4, f0
+    bne a1, zero, cos_l0_2
     fli f2, 3.14159265
     fsub f0, f0, f2
     fli f1, 1.0
@@ -171,9 +191,11 @@ cos_l0_2:
     jump kernel_sin
 cos_l1:
     fli f3, 1.570796325
-    flt f0, f3, cos_l2
+    flt a1, f0, f3
+    bne a1, zero, cos_l2
     fli f4, 2.35619448750000027
-    flt f0, f4, cos_l1_1
+    flt a1, f0, f4
+    bne a1, zero, cos_l1_1
     fli f2, 3.14159265
     fsub f0, f2, f0
     fli f1, -1.0
@@ -184,7 +206,8 @@ cos_l1_1:
     jump kernel_csin
 cos_l2:
     fli f3, 0.7853981625
-    flt f3, f0, cos_l3
+    flt a1, f3, f0
+    bne a1, zero, cos_l3
     fli f1, 1.0
     jump kernel_cos
 cos_l3:
@@ -228,12 +251,14 @@ atan:
     flw f1, 0(sp)
     # f0=a f1=x
 	fli f2, 0.4375
-    fle f2, f0, atan_l1
+    fle a1, f2, f0
+    bne a1, zero, atan_l1
     fmv f0, f1
     jump kernel_atan
 atan_l1:
     fli f2, 2.4375
-    fle f2, f0, atan_l2
+    fle a1, f2, f0
+    bne a1, zero, atan_l2
     fli f3, 1.0
     fsub f4, f0, f3
     fadd f5, f0, f3
