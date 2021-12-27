@@ -313,9 +313,9 @@ let h oc { name = Id.L x; args = _; fargs = _; body = e; ret = _ } =
 let f oc (Prog (data, fundefs, e)) =
   Format.eprintf "generating assembly...@.";
   Printf.fprintf oc "\tjump min_caml_start\n";
-  Printf.fprintf oc "print_int:\n";
+  (* Printf.fprintf oc "print_int:\n";
   Printf.fprintf oc "\tsw a0, 0(zero)\n";
-  Printf.fprintf oc "\tjalr zero, ra, 0 # ret\n";
+  Printf.fprintf oc "\tjalr zero, ra, 0 # ret\n"; *)
   List.iter
     (fun (Id.L x, d) ->
       Printf.fprintf oc "%s:\t# %f\n" x d;

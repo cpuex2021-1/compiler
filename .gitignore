@@ -85,3 +85,4 @@ parser.output
 *.s
 output/*.txt
 output/*.s
+!lib/*.s
