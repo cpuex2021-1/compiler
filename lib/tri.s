@@ -139,7 +139,7 @@ sin_l2:
     fli f3, 0.7853981625
     flt a1, f0, f3
     bne a1, zero, sin_l3
-    jump kernel_cos
+    jump kernel_sin
 sin_l3:
     fsub f0, f2, f0
     jump kernel_cos
@@ -203,7 +203,7 @@ cos_l1:
 cos_l1_1:
     fsub f0, f0, f3
     fli f1, -1.0
-    jump kernel_csin
+    jump kernel_sin
 cos_l2:
     fli f3, 0.7853981625
     flt a1, f3, f0
@@ -213,7 +213,7 @@ cos_l2:
 cos_l3:
     fsub f0, f2, f0
     fli f1, 1.0
-    jump kernel_cos
+    jump kernel_sin
 kernel_atan: # f0=x f1=flag
 	fmul f2, f0, f0
 	fmul f3, f0, f2
@@ -267,4 +267,4 @@ atan_l1:
 atan_l2:
     fli f2, 1.0
     fdiv f0, f2, f0
-    jump_kernel_atan
+    jump kernel_atan

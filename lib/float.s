@@ -12,7 +12,7 @@ fneg:
     jalr zero, ra, 0
 fabs:
     flt a1, f0, fzero
-    bne fabs_l1, zero, fabs_l1
+    bne a1, zero, fabs_l1
     jalr zero, ra, 0
 fabs_l1:
     fli f1, -1
