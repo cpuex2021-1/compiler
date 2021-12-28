@@ -7,6 +7,7 @@ type t = Ans of exp | Let of (Id.t * Type.t) * exp * t
 and exp =
   | Nop
   | Set of int
+  | SetF of float
   | SetL of Id.l
   | Mov of Id.t
   | Neg of Id.t
@@ -117,7 +118,7 @@ let rec remove_and_uniq xs = function
 let fv_id_or_imm = function V x -> [ x ] | _ -> []
 
 let rec fv_exp = function
-  | Nop | Set _ | SetL _ | Comment _ | Restore _ -> []
+  | Nop | Set _ | SetF _ | SetL _ | Comment _ | Restore _ -> []
   | Mov x | Neg x | FMovD x | FNegD x | Save (x, _) -> [ x ]
   | Add (x, y') | Sub (x, y') | SLL (x, y') | Ld (x, y') | LdDF (x, y') ->
       x :: fv_id_or_imm y'

@@ -68,6 +68,7 @@ and g' oc = function
   (* 末尾でなかったら計算結果をdestにセット *)
   | NonTail _, Nop -> ()
   | NonTail x, Set i -> Printf.fprintf oc "\tli %s, %d\n" x i
+  | NonTail x, SetF f -> Printf.fprintf oc "\tfli %s, %f\n" x f
   | NonTail x, SetL (Id.L y) -> Printf.fprintf oc "\tla %s, %s\n" x y
   | NonTail x, Mov y when x = y -> ()
   | NonTail x, Mov y -> Printf.fprintf oc "\tadd %s, %s, zero\n" x y
@@ -139,8 +140,8 @@ and g' oc = function
       g' oc (NonTail (Id.gentmp Type.Unit), exp);
       Printf.fprintf oc "\tjalr zero, ra, 0 # ret\n"
   | ( Tail,
-      ((Set _ | SetL _ | Mov _ | Neg _ | Add _ | Sub _ | SLL _ | Ld _) as exp) )
-    ->
+      ((Set _ | SetF _ | SetL _ | Mov _ | Neg _ | Add _ | Sub _ | SLL _ | Ld _)
+      as exp) ) ->
       g' oc (NonTail regs.(0), exp);
       Printf.fprintf oc "\tjalr zero, ra, 0 # ret\n"
   | ( Tail,

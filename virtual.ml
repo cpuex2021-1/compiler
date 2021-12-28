@@ -29,17 +29,18 @@ let rec g env = function
   | Closure.Unit -> Asm.Ans Asm.Nop
   | Closure.Int i -> Asm.Ans (Asm.Set i)
   | Closure.Float d ->
-      let l =
-        try
-          let l, _ = List.find (fun (_, d') -> d = d') !data in
-          l
-        with Not_found ->
-          let l = Id.L (Id.genid "l") in
-          data := (l, d) :: !data;
-          l
-      in
-      let x = Id.genid "l" in
-      Let ((x, Type.Int), Asm.SetL l, Asm.Ans (Asm.LdDF (x, Asm.C 0)))
+      Asm.Ans (Asm.SetF d)
+      (* let l =
+           try
+             let l, _ = List.find (fun (_, d') -> d = d') !data in
+             l
+           with Not_found ->
+             let l = Id.L (Id.genid "l") in
+             data := (l, d) :: !data;
+             l
+         in
+         let x = Id.genid "l" in
+         Let ((x, Type.Int), Asm.SetL l, Asm.Ans (Asm.LdDF (x, Asm.C 0))) *)
   | Closure.Neg x -> Asm.Ans (Asm.Neg x)
   | Closure.Add (x, y) -> Asm.Ans (Asm.Add (x, Asm.V y))
   | Closure.Sub (x, y) -> Asm.Ans (Asm.Sub (x, Asm.V y))
@@ -208,6 +209,7 @@ let rec print_exp e =
   match e with
   | Asm.Nop -> "nop"
   | Asm.Set i -> "set " ^ string_of_int i
+  | Asm.SetF f -> "setf " ^ string_of_float f
   | Asm.SetL (L l) -> "setl " ^ l
   | Asm.Mov t -> "mov " ^ t
   | Asm.Neg t -> "neg " ^ t
