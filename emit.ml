@@ -313,9 +313,19 @@ let h oc { name = Id.L x; args = _; fargs = _; body = e; ret = _ } =
 let f oc (Prog (data, fundefs, e)) =
   Format.eprintf "generating assembly...@.";
   Printf.fprintf oc "\tjump min_caml_start\n";
-  (* Printf.fprintf oc "print_int:\n";
-  Printf.fprintf oc "\tsw a0, 0(zero)\n";
-  Printf.fprintf oc "\tjalr zero, ra, 0 # ret\n"; *)
+  let print_file filename =
+    let chan = open_in filename in
+    try
+      while true do
+        Printf.fprintf oc "%s\n" (input_line chan)
+      done
+    with End_of_file -> close_in chan
+  in
+  print_file "lib/print.s";
+  print_file "lib/read.s";
+  print_file "lib/float.s";
+  print_file "lib/array.s";
+  print_file "lib/tri.s";
   List.iter
     (fun (Id.L x, d) ->
       Printf.fprintf oc "%s:\t# %f\n" x d;
