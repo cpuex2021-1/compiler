@@ -89,13 +89,15 @@ and g' oc = function
       match z' with
       | V id ->
           Printf.fprintf oc "\tadd a22, %s, %s\n" id y;
-          Printf.fprintf oc "\tlw %s, 0(a22)\n" x
+          if List.mem x allregs then Printf.fprintf oc "\tlw %s, 0(a22)\n" x
+          else Printf.fprintf oc "\tflw %s, 0(a22)\n" x
       | C i -> Printf.fprintf oc "\tlw %s, %d(%s)\n" x i y)
   | NonTail _, St (x, y, z') -> (
       match z' with
       | V id ->
           Printf.fprintf oc "\tadd a22, %s, %s\n" id y;
-          Printf.fprintf oc "\tsw %s, 0(a22)\n" x
+          if List.mem x allregs then Printf.fprintf oc "\tsw %s, 0(a22)\n" x
+          else Printf.fprintf oc "\tfsw %s, 0(a22)\n" x
       | C i -> Printf.fprintf oc "\tsw %s, %d(%s)\n" x i y)
   | NonTail x, FMovD y when x = y -> ()
   | NonTail x, FMovD y -> Printf.fprintf oc "\tfadd %s, %s, fzero\n" x y
@@ -108,13 +110,15 @@ and g' oc = function
       match z' with
       | V id ->
           Printf.fprintf oc "\tadd a22, %s, %s\n" id y;
-          Printf.fprintf oc "\tlw %s, 0(a22)\n" x
+          if List.mem x allregs then Printf.fprintf oc "\tlw %s, 0(a22)\n" x
+          else Printf.fprintf oc "\tflw %s, 0(a22)\n" x
       | C i -> Printf.fprintf oc "\tflw %s, %d(%s)\n" x i y)
   | NonTail _, StDF (x, y, z') -> (
       match z' with
       | V id ->
           Printf.fprintf oc "\tadd a22, %s, %s\n" id y;
-          Printf.fprintf oc "\tsw %s, 0(a22)\n" x
+          if List.mem x allregs then Printf.fprintf oc "\tsw %s, 0(a22)\n" x
+          else Printf.fprintf oc "\tfsw %s, 0(a22)\n" x
       | C i -> Printf.fprintf oc "\tfsw %s, %d(%s)\n" x i y)
   | NonTail _, Comment s -> Printf.fprintf oc "\t# %s\n" s
   (* 退避の仮想命令の実装 *)
@@ -125,7 +129,7 @@ and g' oc = function
   | NonTail _, Save (x, y)
     when List.mem x allfregs && not (set_exist y !stackset) ->
       savef y;
-      Printf.fprintf oc "\tsw %s, %d(%s)\n" x (offset y) reg_sp
+      Printf.fprintf oc "\tfsw %s, %d(%s)\n" x (offset y) reg_sp
   | NonTail _, Save (x, y) ->
       assert (set_exist y !stackset);
       ()
@@ -134,7 +138,7 @@ and g' oc = function
       Printf.fprintf oc "\tlw %s, %d(%s)\n" x (offset y) reg_sp
   | NonTail x, Restore y ->
       assert (List.mem x allfregs);
-      Printf.fprintf oc "\tlw %s, %d(%s)\n" x (offset y) reg_sp
+      Printf.fprintf oc "\tflw %s, %d(%s)\n" x (offset y) reg_sp
   (* 末尾だったら計算結果を第一レジスタにセットしてret *)
   | Tail, ((Nop | St _ | StDF _ | Comment _ | Save _) as exp) ->
       g' oc (NonTail (Id.gentmp Type.Unit), exp);

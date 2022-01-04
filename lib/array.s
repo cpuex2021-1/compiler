@@ -20,7 +20,7 @@ create_float_array_cont:
     addi a0, a0, -1
     slli a2, a0, 2
     add a2, a2, hp
-    sw f0, 0(a2)
+    fsw f0, 0(a2)
     jump create_float_array_loop
 create_float_array_exit:
     add a0, hp, zero

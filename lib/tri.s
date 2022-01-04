@@ -79,7 +79,7 @@ reduction_2pi_l1_1:
 reduction_2pi_l1_2:
     jalr zero, ra, 0
 sin:
-    sw f0, 0(sp)
+    fsw f0, 0(sp)
 	sw ra, -1(sp)
 	addi sp, sp, -2
 	jal ra, fabs # call
@@ -144,7 +144,7 @@ sin_l3:
     fsub f0, f2, f0
     jump kernel_cos
 cos:
-    sw f0, 0(sp)
+    fsw f0, 0(sp)
 	sw ra, -1(sp)
 	addi sp, sp, -2
 	jal ra, fabs # call
@@ -242,7 +242,7 @@ kernel_atan: # f0=x f1=flag
 	fadd f0, f0, f2
 	jump fsgnj
 atan:
-	sw f0, 0(sp)
+	fsw f0, 0(sp)
 	sw ra, -1(sp)
 	addi sp, sp, -2
 	jal ra, fabs # call
