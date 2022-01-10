@@ -20,7 +20,7 @@ let expand xts ini addf addi =
   classify xts ini
     (fun (offset, acc) x ->
       let offset = Asm.align offset in
-      (offset + 8, addf x offset acc))
+      (offset + 4, addf x offset acc))
     (fun (offset, acc) x t -> (offset + 1, addi x t offset acc))
 
 let rec log2 n = if n = 1 then 0 else 1 + log2 (n / 2)
@@ -143,7 +143,7 @@ let rec g env = function
       | Type.Array Type.Float ->
           Asm.Let
             ( (offset, Type.Int),
-              Asm.SLL (y, C 2),
+              Asm.SLL (y, Asm.C 2),
               Asm.Ans (Asm.LdDF (x, Asm.V offset)) )
       | Type.Array _ ->
           Asm.Let
@@ -158,7 +158,7 @@ let rec g env = function
       | Type.Array Type.Float ->
           Asm.Let
             ( (offset, Type.Int),
-              Asm.SLL (y, Asm.C 3),
+              Asm.SLL (y, Asm.C 2),
               Asm.Ans (Asm.StDF (z, x, Asm.V offset)) )
       | Type.Array _ ->
           Asm.Let
