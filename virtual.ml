@@ -143,7 +143,7 @@ let rec g env = function
       | Type.Array Type.Float ->
           Asm.Let
             ( (offset, Type.Int),
-              Asm.SLL (y, C 3),
+              Asm.SLL (y, C 2),
               Asm.Ans (Asm.LdDF (x, Asm.V offset)) )
       | Type.Array _ ->
           Asm.Let
