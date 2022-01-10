@@ -144,13 +144,13 @@ and g' oc = function
       g' oc (NonTail (Id.gentmp Type.Unit), exp);
       Printf.fprintf oc "\tjalr zero, ra, 0 # ret\n"
   | ( Tail,
-      ((Set _ | SetF _ | SetL _ | Mov _ | Neg _ | Add _ | Sub _ | SLL _ | Ld _)
-      as exp) ) ->
+      ((Set _ | SetL _ | Mov _ | Neg _ | Add _ | Sub _ | SLL _ | Ld _) as exp) )
+    ->
       g' oc (NonTail regs.(0), exp);
       Printf.fprintf oc "\tjalr zero, ra, 0 # ret\n"
   | ( Tail,
-      ((FMovD _ | FNegD _ | FAddD _ | FSubD _ | FMulD _ | FDivD _ | LdDF _) as
-      exp) ) ->
+      (( SetF _ | FMovD _ | FNegD _ | FAddD _ | FSubD _ | FMulD _ | FDivD _
+       | LdDF _ ) as exp) ) ->
       g' oc (NonTail fregs.(0), exp);
       Printf.fprintf oc "\tjalr zero, ra, 0 # ret\n"
   | Tail, (Restore x as exp) ->
