@@ -304,9 +304,8 @@ and g'_args oc x_reg_cl ys zs =
       (0, []) zs
   in
   List.iter
-    (fun (z, fr) ->
-      Printf.fprintf oc "\tfmv %s, %s\n" z fr;
-      Printf.fprintf oc "\tfmv %s, %s\n" (co_freg z) (co_freg fr))
+    (fun (z, fr) -> Printf.fprintf oc "\tfmv %s, %s\n" fr z)
+    (* Printf.fprintf oc "\tfmv %s, %s\n" (co_freg z) (co_freg fr)) *)
     (shuffle reg_fsw zfrs)
 
 let h oc { name = Id.L x; args = _; fargs = _; body = e; ret = _ } =
