@@ -30,6 +30,6 @@ print_int_l4:
 print_int_l5:
 	beq a2, a7, print_int_l6
 	sw a2, 0(zero)
-print_int_l6
+print_int_l6:
 	sw a3, 0(zero)
 	jalr zero, ra, 0
