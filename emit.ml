@@ -234,7 +234,7 @@ and g' oc = function
       (* 末尾呼び出し *)
       g'_args oc [ (x, reg_cl) ] ys zs;
       Printf.fprintf oc "\tlw %s, 0(%s)\n" reg_sw reg_cl;
-      Printf.fprintf oc "\tjalr ra, %s, 0\n" reg_sw
+      Printf.fprintf oc "\tjalr zero, %s, 0\n" reg_sw
   | Tail, CallDir (Id.L x, ys, zs) ->
       (* 末尾呼び出し *)
       g'_args oc [] ys zs;
