@@ -192,7 +192,7 @@ and g' oc = function
       let stackset_back = !stackset in
       g oc (NonTail z, e1);
       let stackset1 = !stackset in
-      Printf.fprintf oc "\t jump %s\n" b_cont;
+      Printf.fprintf oc "\tjump %s\n" b_cont;
       Printf.fprintf oc "%s:\n" b_else;
       stackset := stackset_back;
       g oc (NonTail z, e2);
@@ -206,7 +206,7 @@ and g' oc = function
       let stackset_back = !stackset in
       g oc (NonTail z, e1);
       let stackset1 = !stackset in
-      Printf.fprintf oc "\t jump %s\n" b_cont;
+      Printf.fprintf oc "\tjump %s\n" b_cont;
       Printf.fprintf oc "%s:\n" b_else;
       stackset := stackset_back;
       g oc (NonTail z, e2);
@@ -220,7 +220,7 @@ and g' oc = function
       let stackset_back = !stackset in
       g oc (NonTail z, e1);
       let stackset1 = !stackset in
-      Printf.fprintf oc "\t jump %s\n" b_cont;
+      Printf.fprintf oc "\tjump %s\n" b_cont;
       Printf.fprintf oc "%s:\n" b_else;
       stackset := stackset_back;
       g oc (NonTail z, e2);
