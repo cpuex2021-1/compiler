@@ -1,90 +1,63 @@
-let rec kernel_sin x flag =
-  let x2 = x *. x in
-  let x3 = x *. x2 in
-  let x5 = x3 *. x2 in
-  let x7 = x5 *. x2 in
-  let x13 = x -. (0.16666668 *. x3) in
-  let x57 = (0.008332824 *. x5) -. (0.00019587841 *. x7) in
-  fsgnj (x13 +. x57) flag
+let rec pi_div e x =
+  if 0. = e then e
+  else if 0. < e then
+    if e < 3.141592653 *. 2. then e
+    else if x >= e then pi_div (e -. fhalf x) (fhalf x)
+    else pi_div e (x *. 2.)
+  else if x >= e then pi_div (e -. fhalf x) (fhalf x)
+  else pi_div e (x *. 2.)
 in
 
-let rec kernel_cos x flag =
-  let x2 = x *. x in
-  let x4 = x2 *. x2 in
-  let x6 = x4 *. x2 in
-  let x02 = 1.0 -. (0.5 *. x2) in
-  let x46 = (0.04166368 *. x4) -. (0.0013695068 *. x6) in
-  fsgnj (x02 +. x46) flag
+let rec pi4div x =
+  if x < 3.141592653 /. 2. then (x, 1.)
+  else if x < 3.141592653 then (3.141592653 -. x, -1.)
+  else if x < 3.141592653 *. 1.5 then (x -. 3.141592653, -1.)
+  else ((3.141592653 *. 2.) -. x, 1.)
 in
 
-let rec reduction_2pi x p is_p_updating =
-  if is_p_updating then
-    if x >= p then reduction_2pi x (p *. 2.) true
-    else if x >= 3.14159265 *. 2. then
-      if x >= p then reduction_2pi (x -. p) (p /. 2.) false
-      else reduction_2pi x (p /. 2.) false
-    else x
-  else if x >= 3.14159265 *. 2. then
-    if x >= p then reduction_2pi (x -. p) (p /. 2.) false
-    else reduction_2pi x (p /. 2.) false
-  else x
+let rec pi4div2 x =
+  if x < 3.141592653 /. 2. then (x, 1.)
+  else if x < 3.141592653 then (3.141592653 -. x, 1.)
+  else if x < 3.141592653 *. 1.5 then (x -. 3.141592653, -1.)
+  else ((3.141592653 *. 2.) -. x, -1.)
 in
 
-let rec sin x_orig =
-  let x = reduction_2pi (fabs x_orig) (2. *. 3.14159265) true in
-  if x >= 3.14159265 then
-    if x >= 3.14159265 /. 2. then
-      if x >= 3.14159265 /. 4. *. 7. then
-        kernel_sin ((3.14159265 *. 2.) -. x) (-.x_orig)
-      else kernel_cos (x -. (3.14159265 *. 3. /. 2.)) (-.x_orig)
-    else if x >= 3.14159265 /. 4. *. 5. then
-      kernel_sin (x -. 3.14159265) (-.x_orig)
-    else kernel_cos ((3.14159265 *. 3. /. 2.) -. x) (-.x_orig)
-  else if x >= 3.14159265 /. 2. then
-    if x >= 3.14159265 /. 4. *. 3. then kernel_sin (3.14159265 -. x) x_orig
-    else kernel_cos (x -. (3.14159265 /. 2.)) x_orig
-  else if x >= 3.14159265 /. 4. then kernel_sin x x_orig
-  else kernel_cos ((3.14159265 /. 2.) -. x) x_orig
+let rec tailor_cos y =
+  let xx = y *. y in
+  let t2 = fhalf xx in
+  let t4 = xx *. t2 *. 0.08333333333 in
+  let t6 = xx *. t4 *. 0.03333333333 in
+  let t8 = xx *. t6 *. 0.01785714285 in
+  let t10 = xx *. t8 *. 0.01111111111 in
+  let t12 = xx *. t10 *. 0.00757575757 in
+  1. -. t2 +. t4 -. t6 +. t8 -. t10 +. t12
 in
 
 let rec cos x =
-  let x = reduction_2pi (fabs x) (2. *. 3.14159265) true in
-  if x >= 3.14159265 /. 2. then
-    if x >= 3.14159265 /. 2. *. 3. then
-      if x >= 3.14159265 *. 7. /. 4. then
-        kernel_cos ((2. *. 3.14159265) -. x) (-1.0)
-      else kernel_sin (x -. (3.14159265 *. 7. /. 4.)) (-1.0)
-    else if x <= 3.14159265 /. 5. *. 4. then kernel_cos (x -. 3.14159265) 1.0
-    else kernel_sin ((3.14159265 *. 3. /. 2.) -. x) 1.0
-  else if x >= 3.14159265 /. 2. then
-    if x >= 3.14159265 *. 3. /. 4. then kernel_cos (3.14159265 -. x) (-1.0)
-    else kernel_sin (x -. (3.14159265 /. 2.)) (-1.0)
-  else if x <= 3.14159265 /. 4. then kernel_cos x 1.0
-  else kernel_sin ((3.14159265 /. 2.) -. x) 1.0
+  let (a, b) = pi4div (pi_div x (3.141592653 *. 2.)) in
+  b *. tailor_cos a
 in
 
-let rec kernel_atan x app flag =
-  let x2 = x *. x in
-  let x3 = x *. x2 in
-  let x5 = x3 *. x2 in
-  let x7 = x5 *. x2 in
-  let x9 = x7 *. x2 in
-  let x11 = x9 *. x2 in
-  let x13 = x11 *. x2 in
-  let x_13 = x -. (0.3333333 *. x3) in
-  let x57 = (0.2 *. x5) -. (0.142857142 *. x7) in
-  let x913 =
-    (0.111111104 *. x9) -. (0.08976446 *. x11) +. (0.060035485 *. x13)
-  in
-  fsgnj (x_13 +. x57 +. x913) flag
+let rec sin x =
+  let (a, b) = pi4div2 (pi_div x (3.141592653 *. 2.)) in
+  b *. tailor_cos ((3.141592653 /. 2.) -. a)
 in
 
-let rec atan x =
-  let a = fabs x in
-  if a < 0.4375 then kernel_atan x 0.0 x
-  else if a < 2.4375 then
-    kernel_atan ((a -. 1.0) /. (a +. 1.0)) (3.14159265 /. 4.) x
-  else kernel_atan (1.0 /. a) (-3.14159265 /. 2.) x
+let rec tailor_atan y =
+  let xx = y *. y in
+  let t3 = xx *. y *. 0.33333333333 in
+  let t5 = xx *. t3 *. 0.6 in
+  let t7 = xx *. t5 *. 0.71428571428 in
+  let t9 = xx *. t7 *. 0.77777777777 in
+  let t11 = xx *. t9 *. 0.81818181818 in
+  y -. t3 +. t5 -. t7 +. t9 -. t11
 in
 
-atan 0.0
+let rec atan y =
+  if y < 0. then -.atan (-.y)
+  else if y > 1. then (3.141592653 /. 2.) -. atan (1. /. y)
+  else if y > 0.41421356 then (3.141592653 /. 4.) +. atan ((y -. 1.) /. (1. +. y))
+  else tailor_atan y
+in
+
+print_int (atan 0.0)
