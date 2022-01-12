@@ -183,8 +183,24 @@ and g' oc = function
       Printf.fprintf oc "%s:\n" b_else;
       stackset := stackset_back;
       g oc (Tail, e2)
-  | Tail, IfFEq (x, y, e1, e2) -> Printf.fprintf oc "IfFEq not supported\n"
-  | Tail, IfFLE (x, y, e1, e2) -> Printf.fprintf oc "IfFLE not supported\n"
+  | Tail, IfFEq (x, y, e1, e2) -> 
+      let b_else = Id.genid "fbe_else" in
+      Printf.fprintf oc "\tfeq a20, %s, %s\n" x y;
+      Printf.fprintf oc "\tbeq a20, zero, %s\n" b_else;
+      let stackset_back = !stackset in
+      g oc (Tail, e1);
+      Printf.fprintf oc "%s:\n" b_else;
+      stackset := stackset_back;
+      g oc (Tail, e2)
+  | Tail, IfFLE (x, y, e1, e2) -> 
+      let b_else = Id.genid "fble_else" in
+      Printf.fprintf oc "\tfle a20, %s, %s\n" x y;
+      Printf.fprintf oc "\tbeq a20, zero, %s\n" b_else;
+      let stackset_back = !stackset in
+      g oc (Tail, e1);
+      Printf.fprintf oc "%s:\n" b_else;
+      stackset := stackset_back;
+      g oc (Tail, e2)
   | NonTail z, IfEq (x, y', e1, e2) ->
       let b_else = Id.genid "be_else" in
       let b_cont = Id.genid "be_cont" in
@@ -227,8 +243,36 @@ and g' oc = function
       Printf.fprintf oc "%s:\n" b_cont;
       let stackset2 = !stackset in
       stackset := set_inter stackset1 stackset2
-  | NonTail z, IfFEq (x, y, e1, e2) -> Printf.fprintf oc "IfFEq not supported\n"
-  | NonTail z, IfFLE (x, y, e1, e2) -> Printf.fprintf oc "IfFLE not supported\n"
+  | NonTail z, IfFEq (x, y, e1, e2) -> 
+      let b_else = Id.genid "fbe_else" in
+      let b_cont = Id.genid "fbe_cont" in
+      Printf.fprintf oc "\tfeq a20, %s, %s\n" x y;
+      Printf.fprintf oc "\tbeq a20, zero, %s\n" b_else;
+      let stackset_back = !stackset in
+      g oc (NonTail z, e1);
+      let stackset1 = !stackset in
+      Printf.fprintf oc "\tjump %s\n" b_cont;
+      Printf.fprintf oc "%s:\n" b_else;
+      stackset := stackset_back;
+      g oc (NonTail z, e2);
+      Printf.fprintf oc "%s:\n" b_cont;
+      let stackset2 = !stackset in
+      stackset := set_inter stackset1 stackset2
+  | NonTail z, IfFLE (x, y, e1, e2) -> 
+      let b_else = Id.genid "fble_else" in
+      let b_cont = Id.genid "fble_cont" in
+      Printf.fprintf oc "\tfle a20, %s, %s\n" x y;
+      Printf.fprintf oc "\tbeq a20, zero, %s\n" b_else;
+      let stackset_back = !stackset in
+      g oc (NonTail z, e1);
+      let stackset1 = !stackset in
+      Printf.fprintf oc "\tjump %s\n" b_cont;
+      Printf.fprintf oc "%s:\n" b_else;
+      stackset := stackset_back;
+      g oc (NonTail z, e2);
+      Printf.fprintf oc "%s:\n" b_cont;
+      let stackset2 = !stackset in
+      stackset := set_inter stackset1 stackset2
   (* 関数呼び出しの仮想命令の実装 *)
   | Tail, CallCls (x, ys, zs) ->
       (* 末尾呼び出し *)
