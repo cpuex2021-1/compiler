@@ -35,9 +35,9 @@ int_of_float:
 float_of_int:
     itof f0, a0
     jalr zero, ra, 0
-sqrt: # what's the difference of sqrt and fsqr?
+sqrt:
     fsqrt f0, f0
     jalr zero, ra, 0
 fsqr:
-    fsqrt f0, f0
+    fmul f0, f0, f0
     jalr zero, ra, 0
