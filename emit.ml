@@ -314,7 +314,12 @@ and g' oc = function
       let ss = stacksize () in
       Printf.fprintf oc "\tsw %s, %d(%s)\n" reg_ra (-ss) reg_sp;
       Printf.fprintf oc "\taddi %s, %s, %d\n" reg_sp reg_sp ((-1 * ss) - 1);
-      Printf.fprintf oc "\tjal ra, %s # call\n" x;
+      (
+        if x = "sin" then Printf.fprintf oc "\tfsin f0, f0\n"
+        else if x = "cos" then Printf.fprintf oc "\tfcos f0, f0\n"
+        else if x = "atan" then Printf.fprintf oc "\tatan f0, f0\n"
+        else Printf.fprintf oc "\tjal ra, %s # call\n" x
+      );
       Printf.fprintf oc "\taddi %s, %s, %d\n" reg_sp reg_sp (ss + 1);
       Printf.fprintf oc "\tlw %s, %d(%s)\n" reg_ra (-ss) reg_sp;
       if List.mem a allregs && a <> regs.(0) then
