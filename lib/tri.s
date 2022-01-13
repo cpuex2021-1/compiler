@@ -323,11 +323,11 @@ fble_else.325:
 	fsub f0, f1, f0
 	jalr zero, ra, 0 # ret
 fble_else.324:
-	sub f0, zero, f0
+	fsub f0, zero, f0
 	sw ra, -4(sp)
 	addi sp, sp, -5
 	jal ra, atan # call
 	addi sp, sp, 5
 	lw ra, -4(sp)
-	sub a0, zero, f0
+	fsub f0, zero, f0
 	jalr zero, ra, 0 # ret
