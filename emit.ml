@@ -45,12 +45,9 @@ let rec shuffle sw xys =
   | [], [] -> []
   | (x, y) :: xys, [] ->
       (* no acyclic moves; resolve a cyclic move *)
-      (y, sw)
-      ::
-      (x, y)
-      ::
-      shuffle sw
-        (List.map (function y', z when y = y' -> (sw, z) | yz -> yz) xys)
+      (y, sw) :: (x, y)
+      :: shuffle sw
+           (List.map (function y', z when y = y' -> (sw, z) | yz -> yz) xys)
   | xys, acyc -> acyc @ shuffle sw xys
 
 type dest = Tail | NonTail of Id.t
@@ -72,7 +69,9 @@ and g' oc = function
   | NonTail x, SetL (Id.L y) -> Printf.fprintf oc "\tla %s, %s\n" x y
   | NonTail x, Mov y when x = y -> ()
   | NonTail x, Mov y -> Printf.fprintf oc "\tadd %s, %s, zero\n" x y
-  | NonTail x, Neg y -> Printf.fprintf oc "\tsub %s, zero, %s\n" x y
+  | NonTail x, Neg y when List.mem y allregs ->
+      Printf.fprintf oc "\tsub %s, zero, %s\n" x y
+  | NonTail x, Neg y -> Printf.fprintf oc "\tfneg %s, %s\n" x y
   | NonTail x, Add (y, z') -> (
       match z' with
       | V id -> Printf.fprintf oc "\tadd %s, %s, %s\n" x y id
@@ -100,6 +99,8 @@ and g' oc = function
           else Printf.fprintf oc "\tfsw %s, 0(a22)\n" x
       | C i -> Printf.fprintf oc "\tsw %s, %d(%s)\n" x i y)
   | NonTail x, FMovD y when x = y -> ()
+  | NonTail x, FMovD y when List.mem x allregs ->
+      Printf.fprintf oc "\tfmv.x.w %s, %s\n" x y
   | NonTail x, FMovD y -> Printf.fprintf oc "\tfadd %s, %s, fzero\n" x y
   | NonTail x, FNegD y -> Printf.fprintf oc "\tfneg %s, %s\n" x y
   | NonTail x, FAddD (y, z) -> Printf.fprintf oc "\tfadd %s, %s, %s\n" x y z
@@ -183,7 +184,7 @@ and g' oc = function
       Printf.fprintf oc "%s:\n" b_else;
       stackset := stackset_back;
       g oc (Tail, e2)
-  | Tail, IfFEq (x, y, e1, e2) -> 
+  | Tail, IfFEq (x, y, e1, e2) ->
       let b_else = Id.genid "fbe_else" in
       Printf.fprintf oc "\tfeq a20, %s, %s\n" x y;
       Printf.fprintf oc "\tbeq a20, zero, %s\n" b_else;
@@ -192,7 +193,7 @@ and g' oc = function
       Printf.fprintf oc "%s:\n" b_else;
       stackset := stackset_back;
       g oc (Tail, e2)
-  | Tail, IfFLE (x, y, e1, e2) -> 
+  | Tail, IfFLE (x, y, e1, e2) ->
       let b_else = Id.genid "fble_else" in
       Printf.fprintf oc "\tfle a20, %s, %s\n" x y;
       Printf.fprintf oc "\tbeq a20, zero, %s\n" b_else;
@@ -243,7 +244,7 @@ and g' oc = function
       Printf.fprintf oc "%s:\n" b_cont;
       let stackset2 = !stackset in
       stackset := set_inter stackset1 stackset2
-  | NonTail z, IfFEq (x, y, e1, e2) -> 
+  | NonTail z, IfFEq (x, y, e1, e2) ->
       let b_else = Id.genid "fbe_else" in
       let b_cont = Id.genid "fbe_cont" in
       Printf.fprintf oc "\tfeq a20, %s, %s\n" x y;
@@ -258,7 +259,7 @@ and g' oc = function
       Printf.fprintf oc "%s:\n" b_cont;
       let stackset2 = !stackset in
       stackset := set_inter stackset1 stackset2
-  | NonTail z, IfFLE (x, y, e1, e2) -> 
+  | NonTail z, IfFLE (x, y, e1, e2) ->
       let b_else = Id.genid "fble_else" in
       let b_cont = Id.genid "fble_cont" in
       Printf.fprintf oc "\tfle a20, %s, %s\n" x y;
@@ -295,7 +296,7 @@ and g' oc = function
       if List.mem a allregs && a <> regs.(0) then
         Printf.fprintf oc "\tadd %s, %s, zero\n" a regs.(0)
       else if List.mem a allfregs && a <> fregs.(0) then
-        Printf.fprintf oc "\tfadd %s, %s, fzero\n" a regs.(0)
+        Printf.fprintf oc "\tfadd %s, %s, fzero\n" a fregs.(0)
   | NonTail a, CallDir (Id.L x, ys, zs) ->
       g'_args oc [] ys zs;
       let ss = stacksize () in
@@ -307,7 +308,7 @@ and g' oc = function
       if List.mem a allregs && a <> regs.(0) then
         Printf.fprintf oc "\tadd %s, %s, zero\n" a regs.(0)
       else if List.mem a allfregs && a <> fregs.(0) then
-        Printf.fprintf oc "\tfadd %s, %s, fzero\n" a regs.(0)
+        Printf.fprintf oc "\tfadd %s, %s, fzero\n" a fregs.(0)
 
 and g'_tail_if oc e1 e2 b bn =
   let b_else = Id.genid (b ^ "_else") in
