@@ -27,7 +27,7 @@ fbe_else.313:
 	jal ra, fhalf # call
 	addi sp, sp, 7
 	lw ra, -6(sp)
-	fadd f1, a0, fzero
+	fadd f1, f0, fzero
 	flw f0, -4(sp)
 	jump pi_div.122
 fble_else.315:
@@ -60,7 +60,7 @@ fble_else.314:
 	jal ra, fhalf # call
 	addi sp, sp, 9
 	lw ra, -8(sp)
-	fadd f1, a0, fzero
+	fadd f1, f0, fzero
 	flw f0, -6(sp)
 	jump pi_div.122
 fble_else.317:
@@ -323,11 +323,11 @@ fble_else.325:
 	fsub f0, f1, f0
 	jalr zero, ra, 0 # ret
 fble_else.324:
-	fsub f0, zero, f0
+	fneg f0, f0
 	sw ra, -4(sp)
 	addi sp, sp, -5
 	jal ra, atan # call
 	addi sp, sp, 5
 	lw ra, -4(sp)
-	fsub f0, zero, f0
+	fneg f0, f0
 	jalr zero, ra, 0 # ret
