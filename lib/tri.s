@@ -7,28 +7,19 @@ fbe_else.313:
 	fli f2, 0.000000
 	fle a20, f0, f2
 	beq a20, zero, fble_else.314
-	fle a20, f0, f1
+	fneg f2, f0
+	fle a20, f2, f1
 	beq a20, zero, fble_else.315
-	fsw f1, 0(sp)
-	fsw f0, -2(sp)
+	fadd f0, f0, f1
+	fsw f0, 0(sp)
 	fmv f0, f1
-	sw ra, -4(sp)
-	addi sp, sp, -5
+	sw ra, -2(sp)
+	addi sp, sp, -3
 	jal ra, fhalf # call
-	addi sp, sp, 5
-	lw ra, -4(sp)
-	flw f1, -2(sp)
-	fsub f0, f1, f0
-	flw f1, 0(sp)
-	fsw f0, -4(sp)
-	fmv f0, f1
-	sw ra, -6(sp)
-	addi sp, sp, -7
-	jal ra, fhalf # call
-	addi sp, sp, 7
-	lw ra, -6(sp)
+	addi sp, sp, 3
+	lw ra, -2(sp)
 	fadd f1, f0, fzero
-	flw f0, -4(sp)
+	flw f0, 0(sp)
 	jump pi_div.122
 fble_else.315:
 	fli f2, 2.000000
@@ -42,17 +33,17 @@ fble_else.314:
 	beq a20, zero, fble_else.316
 	fle a20, f0, f1
 	beq a20, zero, fble_else.317
-	fsw f1, 0(sp)
-	fsw f0, -2(sp)
+	fsw f1, -2(sp)
+	fsw f0, -4(sp)
 	fmv f0, f1
 	sw ra, -6(sp)
 	addi sp, sp, -7
 	jal ra, fhalf # call
 	addi sp, sp, 7
 	lw ra, -6(sp)
-	flw f1, -2(sp)
+	flw f1, -4(sp)
 	fsub f0, f1, f0
-	flw f1, 0(sp)
+	flw f1, -2(sp)
 	fsw f0, -6(sp)
 	fmv f0, f1
 	sw ra, -8(sp)

@@ -1,10 +1,10 @@
 let rec pi_div e x =
   if 0. = e then e
-  else if 0. < e then
+  else if 0. < e then(
     if e < 3.141592653 *. 2. then e
     else if x >= e then pi_div (e -. fhalf x) (fhalf x)
-    else pi_div e (x *. 2.)
-  else if x >= e then pi_div (e -. fhalf x) (fhalf x)
+    else pi_div e (x *. 2.))
+  else if x >= (-.e) then pi_div (e +. x) (fhalf x)
   else pi_div e (x *. 2.)
 in
 
@@ -60,4 +60,4 @@ let rec atan y =
   else tailor_atan y
 in
 
-print_int (atan 0.0)
+print_int (sin (0. -. 1.01))
