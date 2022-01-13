@@ -69,9 +69,17 @@ and g' oc = function
   | NonTail x, SetL (Id.L y) -> Printf.fprintf oc "\tla %s, %s\n" x y
   | NonTail x, Mov y when x = y -> ()
   | NonTail x, Mov y -> Printf.fprintf oc "\tadd %s, %s, zero\n" x y
-  | NonTail x, Neg y when List.mem y allregs ->
-      Printf.fprintf oc "\tsub %s, zero, %s\n" x y
-  | NonTail x, Neg y -> Printf.fprintf oc "\tfneg %s, %s\n" x y
+  | NonTail x, Neg y -> (
+      if List.mem x allregs && List.mem y allregs then 
+          Printf.fprintf oc "\tsub %s, zero, %s\n" x y 
+      else if List.mem x allregs then (
+          Printf.fprintf oc "\tfmv.x.w %s, %s\n" x y;
+          Printf.fprintf oc "\tsub %s, zero, %s\n" x x)
+      else if List.mem y allregs then (
+          Printf.fprintf oc "\tfmv.w.x %s, %s\n" x y;
+          Printf.fprintf oc "\tfneg %s, %s\n" x x)
+      else 
+          Printf.fprintf oc "\tfneg %s, %s\n" x y)
   | NonTail x, Add (y, z') -> (
       match z' with
       | V id -> Printf.fprintf oc "\tadd %s, %s, %s\n" x y id
@@ -145,9 +153,13 @@ and g' oc = function
       g' oc (NonTail (Id.gentmp Type.Unit), exp);
       Printf.fprintf oc "\tjalr zero, ra, 0 # ret\n"
   | ( Tail,
-      ((Set _ | SetL _ | Mov _ | Neg _ | Add _ | Sub _ | SLL _ | Ld _) as exp) )
+      ((Set _ | SetL _ | Mov _ | Add _ | Sub _ | SLL _ | Ld _) as exp) )
     ->
       g' oc (NonTail regs.(0), exp);
+      Printf.fprintf oc "\tjalr zero, ra, 0 # ret\n"
+  | ( Tail, (Neg x as exp) ) ->
+      (if List.mem x allregs then g' oc (NonTail regs.(0), exp)
+      else g' oc (NonTail fregs.(0), exp));
       Printf.fprintf oc "\tjalr zero, ra, 0 # ret\n"
   | ( Tail,
       (( SetF _ | FMovD _ | FNegD _ | FAddD _ | FSubD _ | FMulD _ | FDivD _
