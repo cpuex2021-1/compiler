@@ -50,7 +50,7 @@ let rec g env = function
       (* let z = env_find y env in
          Asm.Ans (Asm.SLL (x, Asm.C (log2 z))) *)
   | Closure.Div (x, y) ->
-      Asm.Ans (Asm.SLL (x, Asm.C (-1)))
+      Asm.Ans (Asm.SRL (x, Asm.C 1))
       (* TODO *)
       (* let z = env_find y env in
          Asm.Ans (Asm.SLL (x, Asm.C (-1 * log2 z))) *)
@@ -216,6 +216,7 @@ let rec print_exp e =
   | Asm.Add (t, i) -> "add " ^ t ^ " " ^ print_i i
   | Asm.Sub (t, i) -> "sub " ^ t ^ " " ^ print_i i
   | Asm.SLL (t, i) -> "sll " ^ t ^ " " ^ print_i i
+  | Asm.SRL (t, i) -> "srl " ^ t ^ " " ^ print_i i
   | Asm.Ld (t, i) -> "load " ^ t ^ " " ^ print_i i
   | Asm.St (t1, t2, i) -> "store " ^ t1 ^ " " ^ t2 ^ " " ^ print_i i
   | Asm.FMovD t -> "fmovd " ^ t

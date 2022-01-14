@@ -142,6 +142,7 @@ and g' dest cont regenv = function
   | Add (x, y') -> (Ans (Add (find x Type.Int regenv, find' y' regenv)), regenv)
   | Sub (x, y') -> (Ans (Sub (find x Type.Int regenv, find' y' regenv)), regenv)
   | SLL (x, y') -> (Ans (SLL (find x Type.Int regenv, find' y' regenv)), regenv)
+  | SRL (x, y') -> (Ans (SRL (find x Type.Int regenv, find' y' regenv)), regenv)
   | Ld (x, y') -> (Ans (Ld (find x Type.Int regenv, find' y' regenv)), regenv)
   | St (x, y, z') ->
       ( Ans

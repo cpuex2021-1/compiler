@@ -14,6 +14,7 @@ and exp =
   | Add of Id.t * id_or_imm
   | Sub of Id.t * id_or_imm
   | SLL of Id.t * id_or_imm
+  | SRL of Id.t * id_or_imm
   | Ld of Id.t * id_or_imm
   | St of Id.t * Id.t * id_or_imm
   | FMovD of Id.t
@@ -120,7 +121,12 @@ let fv_id_or_imm = function V x -> [ x ] | _ -> []
 let rec fv_exp = function
   | Nop | Set _ | SetF _ | SetL _ | Comment _ | Restore _ -> []
   | Mov x | Neg x | FMovD x | FNegD x | Save (x, _) -> [ x ]
-  | Add (x, y') | Sub (x, y') | SLL (x, y') | Ld (x, y') | LdDF (x, y') ->
+  | Add (x, y')
+  | Sub (x, y')
+  | SLL (x, y')
+  | SRL (x, y')
+  | Ld (x, y')
+  | LdDF (x, y') ->
       x :: fv_id_or_imm y'
   | St (x, y, z') | StDF (x, y, z') -> x :: y :: fv_id_or_imm z'
   | FAddD (x, y) | FSubD (x, y) | FMulD (x, y) | FDivD (x, y) -> [ x; y ]
