@@ -221,7 +221,7 @@ let rec cse_f fdef =
 (* Common subexpression elimination *)
 let rec cse (Prog (fundefs, e)) =
   (* let fundefs = List.map cse_f fundefs in *)
-  (* let e = cse_g [] e in *)
+  let e = cse_g [] e in
   Prog (fundefs, e)
 
 let rec print_t t indent =

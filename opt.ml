@@ -273,7 +273,7 @@ let rec cse e =
       let name = fdef.name in
       let args = fdef.args in
       let body = fdef.body in
-      let body' = cse_ [] body in
+      let body' = if size body <= !threshold * 2 then cse_ [] body else body in
       let t' = cse t in
       LetRec ({ name; args; body = body' }, t')
   | e -> e
@@ -287,5 +287,5 @@ let rec f e n th =
     let e' = inline e' in
     let e' = constfold e' in
     let e' = elim e' in
-    (* let e' = cse e' in *)
+    let e' = cse e' in
     if e = e' then e else f e' (n - 1) th
