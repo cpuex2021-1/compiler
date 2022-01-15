@@ -203,6 +203,64 @@ let f (Closure.Prog (fundefs, e)) =
   let e = g [] e in
   Asm.Prog (!data, fundefs, e)
 
+let rec simm_g env = function
+  | Asm.Ans exp -> Asm.Ans (simm_g' env exp)
+  | Asm.Let ((x, t), Asm.Set i, e) when -32768 <= i && i < 32768 ->
+      let e' = simm_g (env_add x i env) e in
+      if List.mem x (Asm.fv e') then Asm.Let ((x, t), Asm.Set i, e') else e'
+  | Asm.Let (xt, Asm.SLL (y, Asm.C i), e) when env_exists y env ->
+      simm_g env (Asm.Let (xt, Asm.Set (env_find y env lsl i), e))
+  | Asm.Let (xt, exp, e) -> Asm.Let (xt, simm_g' env exp, simm_g env e)
+
+and simm_g' env = function
+  | Asm.Add (x, Asm.V y) when env_exists y env ->
+      Asm.Add (x, Asm.C (env_find y env))
+  | Asm.Add (x, Asm.V y) when env_exists x env ->
+      Asm.Add (y, Asm.C (env_find x env))
+  | Asm.Sub (x, Asm.V y) when env_exists y env ->
+      Asm.Sub (x, Asm.C (env_find y env))
+  | Asm.SLL (x, Asm.V y) when env_exists y env ->
+      Asm.SLL (x, Asm.C (env_find y env))
+  | Asm.Ld (x, Asm.V y) when env_exists y env ->
+      Asm.Ld (x, Asm.C (env_find y env))
+  | Asm.St (x, y, Asm.V z) when env_exists z env ->
+      Asm.St (x, y, Asm.C (env_find z env))
+  | Asm.LdDF (x, Asm.V y) when env_exists y env ->
+      Asm.LdDF (x, Asm.C (env_find y env))
+  | Asm.StDF (x, y, Asm.V z) when env_exists z env ->
+      Asm.StDF (x, y, Asm.C (env_find z env))
+  (* | Asm.IfEq (x, Asm.V y, e1, e2) when env_exists y env ->
+         Asm.IfEq (x, Asm.C (env_find y env), simm_g env e1, simm_g env e2)
+     | Asm.IfLE (x, Asm.V y, e1, e2) when env_exists y env ->
+         Asm.IfLE (x, Asm.C (env_find y env), simm_g env e1, simm_g env e2)
+     | Asm.IfGE (x, Asm.V y, e1, e2) when env_exists y env ->
+         Asm.IfGE (x, Asm.C (env_find y env), simm_g env e1, simm_g env e2)
+     | Asm.IfEq (x, Asm.V y, e1, e2) when env_exists x env ->
+         Asm.IfEq (y, Asm.C (env_find x env), simm_g env e1, simm_g env e2)
+     | Asm.IfLE (x, Asm.V y, e1, e2) when env_exists x env ->
+         Asm.IfGE (y, Asm.C (env_find x env), simm_g env e1, simm_g env e2)
+     | Asm.IfGE (x, Asm.V y, e1, e2) when env_exists x env ->
+         Asm.IfLE (y, Asm.C (env_find x env), simm_g env e1, simm_g env e2) *)
+  | Asm.IfEq (x, y', e1, e2) -> Asm.IfEq (x, y', simm_g env e1, simm_g env e2)
+  | Asm.IfLE (x, y', e1, e2) -> Asm.IfLE (x, y', simm_g env e1, simm_g env e2)
+  | Asm.IfGE (x, y', e1, e2) -> Asm.IfGE (x, y', simm_g env e1, simm_g env e2)
+  | Asm.IfFEq (x, y, e1, e2) -> Asm.IfFEq (x, y, simm_g env e1, simm_g env e2)
+  | Asm.IfFLE (x, y, e1, e2) -> Asm.IfFLE (x, y, simm_g env e1, simm_g env e2)
+  | e -> e
+
+let simm_h
+    { Asm.name = l; Asm.args = xs; Asm.fargs = ys; Asm.body = e; Asm.ret = t } =
+  {
+    Asm.name = l;
+    Asm.args = xs;
+    Asm.fargs = ys;
+    Asm.body = simm_g [] e;
+    Asm.ret = t;
+  }
+
+let simm (Asm.Prog (data, fundefs, e)) =
+  Asm.Prog (data, List.map simm_h fundefs, simm_g [] e)
+
 let print_i id = match id with Asm.V t -> t | Asm.C i -> string_of_int i
 
 let rec print_exp e =

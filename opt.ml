@@ -195,5 +195,5 @@ let rec f e n =
     let e' = assoc e' in
     let e' = inline e' in
     let e' = constfold e' in
-    (* let e' = elim e' in *)
+    let e' = elim e' in
     if e = e' then e else f e' (n - 1)

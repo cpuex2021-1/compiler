@@ -53,7 +53,14 @@ let compile in_channel out_channel =
     Printf.fprintf oc "%s\n" (Virtual.print virtual_asm));
 
   (* Asm.prog -> Asm.prog *)
-  let allocated = RegAlloc.f virtual_asm in
+  let simm_asm = Virtual.simm virtual_asm in
+  if !verbose then (
+    let oc = open_out "output/06.5-simm-asm.txt" in
+    Printf.fprintf oc "[Simm Asm]";
+    Printf.fprintf oc "%s\n" (Virtual.print virtual_asm));
+
+  (* Asm.prog -> Asm.prog *)
+  let allocated = RegAlloc.f simm_asm in
   if !verbose then (
     let oc = open_out "output/07-register-allocated.txt" in
     Printf.fprintf oc "[Register Allocated]";
