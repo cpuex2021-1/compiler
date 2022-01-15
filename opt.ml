@@ -188,6 +188,96 @@ let rec elim = function
         e')
   | e -> e
 
+let rec list_equal a b =
+  match (a, b) with
+  | x :: xs, y :: ys -> x = y && list_equal xs ys
+  | [], [] -> true
+  | _, _ -> false
+
+let rec cse_equal a b =
+  match (a, b) with
+  | Unit, Unit -> true
+  | Int i1, Int i2 -> i1 = i2
+  | Float f1, Float f2 -> f1 = f2
+  | Neg t1, Neg t2 -> t1 = t2
+  | Add (t1, t2), Add (t3, t4) -> t1 = t3 && t2 = t4
+  | Sub (t1, t2), Sub (t3, t4) -> t1 = t3 && t2 = t4
+  | FNeg t1, FNeg t2 -> t1 = t2
+  | FAdd (t1, t2), FAdd (t3, t4) -> t1 = t3 && t2 = t4
+  | FSub (t1, t2), FSub (t3, t4) -> t1 = t3 && t2 = t4
+  | FMul (t1, t2), FMul (t3, t4) -> t1 = t3 && t2 = t4
+  | FDiv (t1, t2), FDiv (t3, t4) -> t1 = t3 && t2 = t4
+  | IfEq (id1, id2, t1, t2), IfEq (id3, id4, t3, t4) ->
+      id1 = id3 && id2 = id4 && cse_equal t1 t3 && cse_equal t2 t4
+  | IfLE (id1, id2, t1, t2), IfLE (id3, id4, t3, t4) ->
+      id1 = id3 && id2 = id4 && cse_equal t1 t3 && cse_equal t2 t4
+  | Let ((id1, ty1), t1, t2), Let ((id2, ty2), t3, t4) ->
+      id1 = id2 && cse_equal t1 t3 && cse_equal t2 t4
+  | Var t1, Var t2 -> t1 = t2
+  | Tuple t1, Tuple t2 -> list_equal t1 t2
+  | LetTuple (ls1, v1, t1), LetTuple (ls2, v2, t2) ->
+      list_equal ls1 ls2 && v1 = v2 && cse_equal t1 t2
+  | ExtArray t1, ExtArray t2 -> t1 = t2
+  | _ -> false
+
+let rec cse_find t env =
+  match env with
+  | (a, b) :: rest -> if cse_equal a t then b else cse_find t rest
+  | [] -> raise Not_found
+
+let rec cse_add t id env =
+  match env with
+  | (a, b) :: rest ->
+      if cse_equal a t then (a, id) :: cse_add t id rest
+      else (a, b) :: cse_add t id rest
+  | [] -> [ (t, id) ]
+
+let rec cse_ env t =
+  try
+    let x = cse_find t env in
+    Var x
+  with Not_found -> (
+    match t with
+    | Let ((id, ty), t1, t2) ->
+        let t1' = cse_ env t1 in
+        let env' = cse_add t1' id env in
+        let t2' = cse_ env' t2 in
+        Let ((id, ty), t1', t2')
+    | IfEq (e1, e2, t1, t2) ->
+        let t1' = cse_ env t1 in
+        let t2' = cse_ env t2 in
+        IfEq (e1, e2, t1', t2')
+    | IfLE (e1, e2, t1, t2) ->
+        let t1' = cse_ env t1 in
+        let t2' = cse_ env t2 in
+        IfLE (e1, e2, t1', t2')
+    | LetRec (fdef, t) ->
+        let name = fdef.name in
+        let args = fdef.args in
+        let body = fdef.body in
+        let body' = cse_ env body in
+        let t' = cse_ env t in
+        LetRec ({ name; args; body = body' }, t')
+    | LetTuple (lst, var, t) ->
+        let t' = cse_ env t in
+        LetTuple (lst, var, t')
+    | _ -> t)
+
+(* Common subexpression elimination *)
+let rec cse e =
+  match e with
+  | Let ((id, ty), t1, t2) ->
+      let t2' = cse t2 in
+      Let ((id, ty), t1, t2')
+  | LetRec (fdef, t) ->
+      let name = fdef.name in
+      let args = fdef.args in
+      let body = fdef.body in
+      let body' = cse_ [] body in
+      let t' = cse t in
+      LetRec ({ name; args; body = body' }, t')
+  | e -> e
+
 let rec f e n =
   if n = 0 then e
   else
@@ -196,4 +286,5 @@ let rec f e n =
     let e' = inline e' in
     let e' = constfold e' in
     let e' = elim e' in
+    (* let e' = cse e' in *)
     if e = e' then e else f e' (n - 1)

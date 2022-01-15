@@ -45,8 +45,15 @@ let compile in_channel out_channel =
     Printf.fprintf oc "[Closured]\n";
     Printf.fprintf oc "%s\n" (Closure.print closured));
 
+  (* Closure.prog -> Closure.prog *)
+  let csed = Closure.cse closured in
+  if !verbose then (
+    let oc = open_out "output/05.5-csed.txt" in
+    Printf.fprintf oc "[CSEd]\n";
+    Printf.fprintf oc "%s\n" (Closure.print csed));
+
   (* Closure.prog -> Asm.prog *)
-  let virtual_asm = Virtual.f closured in
+  let virtual_asm = Virtual.f csed in
   if !verbose then (
     let oc = open_out "output/06-virtual-asm.txt" in
     Printf.fprintf oc "[Virtual Asm]\n";
@@ -57,7 +64,7 @@ let compile in_channel out_channel =
   if !verbose then (
     let oc = open_out "output/06.5-simm-asm.txt" in
     Printf.fprintf oc "[Simm Asm]\n";
-    Printf.fprintf oc "%s\n" (Virtual.print virtual_asm));
+    Printf.fprintf oc "%s\n" (Virtual.print simm_asm));
 
   (* Asm.prog -> Asm.prog *)
   let allocated = RegAlloc.f simm_asm in
