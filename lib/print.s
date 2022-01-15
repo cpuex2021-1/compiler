@@ -25,11 +25,7 @@ print_int_l3:
 	addi a0, a0, -1
 	jump print_int_l3
 print_int_l4:
-	beq a1, a7, print_int_l5
 	sw a1, 0(zero)
-print_int_l5:
-	beq a2, a7, print_int_l6
 	sw a2, 0(zero)
-print_int_l6:
 	sw a3, 0(zero)
 	jalr zero, ra, 0
