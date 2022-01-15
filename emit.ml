@@ -70,10 +70,10 @@ and g' oc = function
   | NonTail x, Mov y when x = y -> ()
   | NonTail x, Mov y -> Printf.fprintf oc "\tadd %s, %s, zero\n" x y
   | NonTail x, Neg y ->
-      if List.mem x allregs && List.mem y allregs then
-        Printf.fprintf oc "\tsub %s, zero, %s\n" x y
-          Printf.fprintf oc "\tsub %s, zero, %s\n" x y 
-        Printf.fprintf oc "\tsub %s, zero, %s\n" x y
+      if List.mem x allregs && List.mem y allregs then (
+        Printf.fprintf oc "\tsub %s, zero, %s\n" x y;
+        Printf.fprintf oc "\tsub %s, zero, %s\n" x y;
+        Printf.fprintf oc "\tsub %s, zero, %s\n" x y)
       else if List.mem x allregs then (
         Printf.fprintf oc "\tfmv.x.w %s, %s\n" x y;
         Printf.fprintf oc "\tsub %s, zero, %s\n" x x)
