@@ -59,7 +59,7 @@ let rec assoc = function
   | LetTuple (xts, y, e) -> LetTuple (xts, y, assoc e)
   | e -> e
 
-let threshold = ref 0
+let threshold = ref 5
 
 let rec size = function
   | IfEq (_, _, e1, e2)
@@ -278,7 +278,8 @@ let rec cse e =
       LetRec ({ name; args; body = body' }, t')
   | e -> e
 
-let rec f e n =
+let rec f e n th =
+  threshold := th;
   if n = 0 then e
   else
     let e' = beta e in
@@ -287,4 +288,4 @@ let rec f e n =
     let e' = constfold e' in
     let e' = elim e' in
     (* let e' = cse e' in *)
-    if e = e' then e else f e' (n - 1)
+    if e = e' then e else f e' (n - 1) th
