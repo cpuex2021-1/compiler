@@ -69,8 +69,7 @@ let rec print_t t indent =
       ^ String.make indent_next ' '
       ^ Id.to_string id ^ "\n"
       ^ String.make indent_next ' '
-      ^ Type.print ty ^ "\n" ^ print_t t1 indent_next ^ "\n"
-      ^ print_t t2 indent_next
+      ^ Type.print ty ^ "\n" ^ print_t t1 indent_next ^ "\n" ^ print_t t2 indent
   | Var t -> "VAR " ^ Id.to_string t
   | LetRec (fdef, t) ->
       "LETREC\n"
@@ -88,7 +87,7 @@ let rec print_t t indent =
           "" fdef.args
       ^ "body: \n"
       ^ print_t fdef.body indent_next
-      ^ "\n" ^ print_t t indent_next
+      ^ "\n" ^ print_t t indent
   | App (t, tl) ->
       "APP\n" ^ print_t t indent_next
       ^ List.fold_left (fun s t -> s ^ "\n" ^ print_t t indent_next) "" tl

@@ -280,7 +280,7 @@ let rec print_t t indent =
       ^ String.make indent ' ' ^ "else\n" ^ print_t t2 indent_next
   | Let ((id, ty), t1, t2) ->
       "LET " ^ id ^ ": " ^ Type.print ty ^ " = \n" ^ print_t t1 indent_next
-      ^ "\n" ^ String.make indent ' ' ^ "in\n" ^ print_t t2 indent_next
+      ^ "\n" ^ String.make indent ' ' ^ "in\n" ^ print_t t2 indent
   | Var t -> t
   | LetRec (fdef, t) ->
       "LETREC " ^ "name[" ^ fst fdef.name ^ "]: ("
@@ -291,7 +291,7 @@ let rec print_t t indent =
           "" fdef.args
       ^ "], body[\n"
       ^ print_t fdef.body indent_next
-      ^ "\n" ^ String.make indent ' ' ^ "] in\n" ^ print_t t indent_next
+      ^ "\n" ^ String.make indent ' ' ^ "] in\n" ^ print_t t indent
   | App (t, tl) -> "APP " ^ t ^ List.fold_left (fun s t -> s ^ " " ^ t) "" tl
   | Tuple tl -> "TUPLE" ^ List.fold_left (fun s t -> s ^ " " ^ t) "" tl
   | LetTuple (idl, t1, t2) ->
