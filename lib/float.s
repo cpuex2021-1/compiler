@@ -15,8 +15,7 @@ fabs:
     bne a1, zero, fabs_l1
     jalr zero, ra, 0
 fabs_l1:
-    fli f1, -1
-    fmul f0, f0, f1
+    fneg f0, f0
     jalr zero, ra, 0
 fless:
     flt a0, f0, f1
@@ -26,7 +25,9 @@ fhalf:
     fmul f0, f0, f1
     jalr zero, ra, 0
 floor:
+    flt a1, f0, fzero
     ftoi a0, f0
+    sub a0, a0, a1
     itof f0, a0
     jalr zero, ra, 0
 int_of_float:
