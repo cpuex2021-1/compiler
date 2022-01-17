@@ -263,7 +263,10 @@ let simm (Asm.Prog (data, fundefs, e)) =
 
 let print_i id = match id with Asm.V t -> t | Asm.C i -> string_of_int i
 
-let rec print_exp e =
+let rec print_exp e n =
+  let ind = String.make n ' ' in
+  ind
+  ^
   match e with
   | Asm.Nop -> "nop"
   | Asm.Set i -> "set " ^ string_of_int i
@@ -287,20 +290,30 @@ let rec print_exp e =
   | Asm.StDF (t1, t2, i) -> "stdf " ^ t1 ^ " " ^ t2 ^ " " ^ print_i i
   | Asm.Comment s -> "comment " ^ s
   | Asm.IfEq (id, i, t1, t2) ->
-      "if " ^ id ^ " = " ^ print_i i ^ " then\n" ^ print_t t1 ^ "\nelse\n"
-      ^ print_t t2
+      "if " ^ id ^ " = " ^ print_i i ^ " then\n"
+      ^ print_t t1 (n + 2)
+      ^ "\n" ^ ind ^ "else\n"
+      ^ print_t t2 (n + 2)
   | Asm.IfLE (id, i, t1, t2) ->
-      "if " ^ id ^ " <= " ^ print_i i ^ " then\n" ^ print_t t1 ^ "\nelse\n"
-      ^ print_t t2
+      "if " ^ id ^ " <= " ^ print_i i ^ " then\n"
+      ^ print_t t1 (n + 2)
+      ^ "\n" ^ ind ^ "else\n"
+      ^ print_t t2 (n + 2)
   | Asm.IfGE (id, i, t1, t2) ->
-      "if " ^ id ^ " >= " ^ print_i i ^ " then\n" ^ print_t t1 ^ "\nelse\n"
-      ^ print_t t2
+      "if " ^ id ^ " >= " ^ print_i i ^ " then\n"
+      ^ print_t t1 (n + 2)
+      ^ "\n" ^ ind ^ "else\n"
+      ^ print_t t2 (n + 2)
   | Asm.IfFEq (id1, id2, t1, t2) ->
-      "if " ^ id1 ^ " =. " ^ id2 ^ " then\n" ^ print_t t1 ^ "\nelse\n"
-      ^ print_t t2
+      "if " ^ id1 ^ " =. " ^ id2 ^ " then\n"
+      ^ print_t t1 (n + 2)
+      ^ "\n" ^ ind ^ "else\n"
+      ^ print_t t2 (n + 2)
   | Asm.IfFLE (id1, id2, t1, t2) ->
-      "if " ^ id1 ^ " <=. " ^ id2 ^ " then\n" ^ print_t t1 ^ "\nelse\n"
-      ^ print_t t2
+      "if " ^ id1 ^ " <=. " ^ id2 ^ " then\n"
+      ^ print_t t1 (n + 2)
+      ^ "\n" ^ ind ^ "else\n"
+      ^ print_t t2 (n + 2)
   | Asm.CallCls (t1, t2, t3) ->
       "callcls " ^ t1 ^ "("
       ^ List.fold_left (fun a b -> a ^ " " ^ b) "" t2
@@ -316,11 +329,14 @@ let rec print_exp e =
   | Asm.Save (t1, t2) -> "save " ^ t1 ^ " " ^ t2
   | Asm.Restore t -> "restore " ^ t
 
-and print_t t =
+and print_t t n =
+  let ind = String.make n ' ' in
   match t with
-  | Asm.Ans e -> print_exp e
+  | Asm.Ans e -> print_exp e n
   | Asm.Let ((id, typ), e, t') ->
-      (id ^ ": " ^ Type.print typ ^ " = " ^ print_exp e ^ " \n") ^ print_t t'
+      ind
+      ^ (id ^ ": " ^ Type.print typ ^ " = " ^ print_exp e n ^ " \n")
+      ^ print_t t' n
 
 let print_fun d =
   let (Id.L name) = d.Asm.name in
@@ -332,9 +348,9 @@ let print_fun d =
   ^ List.fold_left (fun a b -> a ^ " " ^ b) "" args
   ^ ")" ^ " ("
   ^ List.fold_left (fun a b -> a ^ " " ^ b) "" fargs
-  ^ ")" ^ " -> " ^ Type.print ret ^ " =\n" ^ print_t body
+  ^ ")" ^ " -> " ^ Type.print ret ^ " =\n" ^ print_t body 0
 
 let print t =
   let (Asm.Prog (fl, fundefs, e)) = t in
-  List.fold_left (fun a b -> a ^ "\n[fun]\n" ^ print_fun b) "" fundefs
-  ^ "\n[body]\n" ^ print_t e
+  List.fold_left (fun a b -> a ^ "\n\n[fun]\n" ^ print_fun b) "" fundefs
+  ^ "\n[body]\n" ^ print_t e 0
