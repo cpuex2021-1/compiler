@@ -1,10 +1,6 @@
 open Ds
 open Asm
 
-external gethi : float -> int32 = "gethi"
-
-external getlo : float -> int32 = "getlo"
-
 let stackset = ref [] (* すでにSaveされた変数の集合 *)
 
 let stackmap = ref []
@@ -13,14 +9,6 @@ let stackmap = ref []
 let save x =
   stackset := set_add x !stackset;
   if not (List.mem x !stackmap) then stackmap := !stackmap @ [ x ]
-
-let savef x =
-  stackset := set_add x !stackset;
-  if not (List.mem x !stackmap) then
-    let pad =
-      if List.length !stackmap mod 2 = 0 then [] else [ Id.gentmp Type.Int ]
-    in
-    stackmap := !stackmap @ pad @ [ x; x ]
 
 let locate x =
   let rec loc = function
@@ -45,9 +33,12 @@ let rec shuffle sw xys =
   | [], [] -> []
   | (x, y) :: xys, [] ->
       (* no acyclic moves; resolve a cyclic move *)
-      (y, sw) :: (x, y)
-      :: shuffle sw
-           (List.map (function y', z when y = y' -> (sw, z) | yz -> yz) xys)
+      (y, sw)
+      ::
+      (x, y)
+      ::
+      shuffle sw
+        (List.map (function y', z when y = y' -> (sw, z) | yz -> yz) xys)
   | xys, acyc -> acyc @ shuffle sw xys
 
 type dest = Tail | NonTail of Id.t
@@ -142,7 +133,7 @@ and g' oc = function
       Printf.fprintf oc "\tsw %s, %d(%s)\n" x (offset y) reg_sp
   | NonTail _, Save (x, y)
     when List.mem x allfregs && not (set_exist y !stackset) ->
-      savef y;
+      save y;
       Printf.fprintf oc "\tfsw %s, %d(%s)\n" x (offset y) reg_sp
   | NonTail _, Save (x, y) ->
       assert (set_exist y !stackset);
