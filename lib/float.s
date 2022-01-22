@@ -25,10 +25,11 @@ fhalf:
     fmul f0, f0, f1
     jalr zero, ra, 0
 floor:
-    flt a1, f0, fzero
-    ftoi a0, f0
-    sub a0, a0, a1
-    itof f0, a0
+    ftoi a0,f0
+    itof f1,a0
+    flt a1,f0,f1
+    sub a0,a0,a1
+    itof f0,a0
     jalr zero, ra, 0
 int_of_float:
     ftoi a0, f0
