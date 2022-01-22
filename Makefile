@@ -11,6 +11,7 @@ SOURCES = \
 	closure.ml \
 	asm.ml \
 	virtual.ml \
+	sched.ml \
 	regAlloc.ml \
 	emit.ml \
 	eval.ml \

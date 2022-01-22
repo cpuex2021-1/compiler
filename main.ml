@@ -62,7 +62,14 @@ let compile in_channel out_channel =
     Printf.fprintf oc "%s\n" (Virtual.print virtual_asm));
 
   (* Asm.prog -> Asm.prog *)
-  let simm_asm = Virtual.simm virtual_asm in
+  let scheduled = Sched.f virtual_asm in
+  if !verbose then (
+    let oc = open_out "output/06.1-scheduled.txt" in
+    Printf.fprintf oc "[Scheduled]\n";
+    Printf.fprintf oc "%s\n" (Virtual.print scheduled));
+
+  (* Asm.prog -> Asm.prog *)
+  let simm_asm = Virtual.simm scheduled in
   if !verbose then (
     let oc = open_out "output/06.5-simm-asm.txt" in
     Printf.fprintf oc "[Simm Asm]\n";
