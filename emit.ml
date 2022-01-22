@@ -1,6 +1,48 @@
 open Ds
 open Asm
 
+type reg = string
+
+type label = string
+
+type t = exp list
+
+and exp =
+  | Nop
+  | Li of reg * int
+  | Fli of reg * float
+  | La of reg * label
+  | Add of reg * reg * reg
+  | Sub of reg * reg * reg
+  | Addi of reg * reg * int
+  | Sll of reg * reg * reg
+  | Srl of reg * reg * reg
+  | Slli of reg * reg * int
+  | Srli of reg * reg * int
+  | Fadd of reg * reg * reg
+  | Fsub of reg * reg * reg
+  | Fmul of reg * reg * reg
+  | Fdiv of reg * reg * reg
+  | Fmv of reg * reg
+  | Fmvxw of reg * reg
+  | Fmvwx of reg * reg
+  | Fneg of reg * reg
+  | Lw of reg * int * reg
+  | Flw of reg * int * reg
+  | Sw of reg * int * reg
+  | Fsw of reg * int * reg
+  | Beq of reg * reg * label
+  | Bne of reg * reg * label
+  | Blt of reg * reg * label
+  | Feq of reg * reg * reg
+  | Fle of reg * reg * reg
+  | Jump of label
+  | Jalr of reg * reg * int
+  | Jal of reg * reg
+  | Label of label
+
+let insns = ref []
+
 let stackset = ref [] (* すでにSaveされた変数の集合 *)
 
 let stackmap = ref []
@@ -55,292 +97,266 @@ and g' oc = function
   (* 各命令のアセンブリ生成 *)
   (* 末尾でなかったら計算結果をdestにセット *)
   | NonTail _, Nop -> ()
-  | NonTail x, Set i -> Printf.fprintf oc "\tli %s, %d\n" x i
-  | NonTail x, SetF f -> Printf.fprintf oc "\tfli %s, %f\n" x f
-  | NonTail x, SetL (Id.L y) -> Printf.fprintf oc "\tla %s, %s\n" x y
+  | NonTail x, Set i -> insns := Li (x, i) :: !insns
+  | NonTail x, SetF f -> insns := Fli (x, f) :: !insns
+  | NonTail x, SetL (Id.L y) -> insns := La (x, y) :: !insns
   | NonTail x, Mov y when x = y -> ()
-  | NonTail x, Mov y -> Printf.fprintf oc "\tadd %s, %s, zero\n" x y
+  | NonTail x, Mov y -> insns := Add (x, y, "zero") :: !insns
   | NonTail x, Neg y ->
-      if List.mem x allregs && List.mem y allregs then (
-        Printf.fprintf oc "\tsub %s, zero, %s\n" x y;
-        Printf.fprintf oc "\tsub %s, zero, %s\n" x y;
-        Printf.fprintf oc "\tsub %s, zero, %s\n" x y)
+      if List.mem x allregs && List.mem y allregs then
+        insns := Sub (x, "zero", y) :: !insns
       else if List.mem x allregs then (
-        Printf.fprintf oc "\tfmv.x.w %s, %s\n" x y;
-        Printf.fprintf oc "\tsub %s, zero, %s\n" x x)
+        insns := Fmvxw (x, y) :: !insns;
+        insns := Sub (x, "zero", x) :: !insns)
       else if List.mem y allregs then (
-        Printf.fprintf oc "\tfmv.w.x %s, %s\n" x y;
-        Printf.fprintf oc "\tfneg %s, %s\n" x x)
-      else Printf.fprintf oc "\tfneg %s, %s\n" x y
+        insns := Fmvwx (x, y) :: !insns;
+        insns := Fneg (x, x) :: !insns)
+      else insns := Fneg (x, y) :: !insns
   | NonTail x, Add (y, z') -> (
       match z' with
-      | V id -> Printf.fprintf oc "\tadd %s, %s, %s\n" x y id
-      | C i -> Printf.fprintf oc "\taddi %s, %s, %d\n" x y i)
+      | V id -> insns := Add (x, y, id) :: !insns
+      | C i -> insns := Addi (x, y, i) :: !insns)
   | NonTail x, Sub (y, z') -> (
       match z' with
-      | V id -> Printf.fprintf oc "\tsub %s, %s, %s\n" x y id
-      | C i -> Printf.fprintf oc "\taddi %s, %s, %d\n" x y (-1 * i))
+      | V id -> insns := Sub (x, y, id) :: !insns
+      | C i -> insns := Addi (x, y, -1 * i) :: !insns)
   | NonTail x, SLL (y, z') -> (
       match z' with
-      | V id -> Printf.fprintf oc "\tsll %s, %s, %s\n" x y id
-      | C i -> Printf.fprintf oc "\tslli %s, %s, %d\n" x y i)
+      | V id -> insns := Sll (x, y, id) :: !insns
+      | C i -> insns := Slli (x, y, i) :: !insns)
   | NonTail x, SRL (y, z') -> (
       match z' with
-      | V id -> Printf.fprintf oc "\tsrl %s, %s, %s\n" x y id
-      | C i -> Printf.fprintf oc "\tsrli %s, %s, %d\n" x y i)
+      | V id -> insns := Srl (x, y, id) :: !insns
+      | C i -> insns := Srli (x, y, i) :: !insns)
   | NonTail x, Ld (y, z') -> (
       match z' with
       | V id ->
-          Printf.fprintf oc "\tadd a22, %s, %s\n" id y;
-          if List.mem x allregs then Printf.fprintf oc "\tlw %s, 0(a22)\n" x
-          else Printf.fprintf oc "\tflw %s, 0(a22)\n" x
-      | C i -> Printf.fprintf oc "\tlw %s, %d(%s)\n" x i y)
+          insns := Add ("a22", id, y) :: !insns;
+          if List.mem x allregs then insns := Lw (x, 0, "a22") :: !insns
+          else insns := Flw (x, 0, "a22") :: !insns
+      | C i -> insns := Lw (x, i, y) :: !insns)
   | NonTail _, St (x, y, z') -> (
       match z' with
       | V id ->
-          Printf.fprintf oc "\tadd a22, %s, %s\n" id y;
-          if List.mem x allregs then Printf.fprintf oc "\tsw %s, 0(a22)\n" x
-          else Printf.fprintf oc "\tfsw %s, 0(a22)\n" x
-      | C i -> Printf.fprintf oc "\tsw %s, %d(%s)\n" x i y)
+          insns := Add ("a22", id, y) :: !insns;
+          if List.mem x allregs then insns := Sw (x, 0, "a22") :: !insns
+          else insns := Fsw (x, 0, "a22") :: !insns
+      | C i -> insns := Sw (x, i, y) :: !insns)
   | NonTail x, FMovD y when x = y -> ()
   | NonTail x, FMovD y when List.mem x allregs ->
-      Printf.fprintf oc "\tfmv.x.w %s, %s\n" x y
-  | NonTail x, FMovD y -> Printf.fprintf oc "\tfadd %s, %s, fzero\n" x y
-  | NonTail x, FNegD y -> Printf.fprintf oc "\tfneg %s, %s\n" x y
-  | NonTail x, FAddD (y, z) -> Printf.fprintf oc "\tfadd %s, %s, %s\n" x y z
-  | NonTail x, FSubD (y, z) -> Printf.fprintf oc "\tfsub %s, %s, %s\n" x y z
-  | NonTail x, FMulD (y, z) -> Printf.fprintf oc "\tfmul %s, %s, %s\n" x y z
-  | NonTail x, FDivD (y, z) -> Printf.fprintf oc "\tfdiv %s, %s, %s\n" x y z
+      insns := Fmvxw (x, y) :: !insns
+  | NonTail x, FMovD y -> insns := Fadd (x, y, "fzero") :: !insns
+  | NonTail x, FNegD y -> insns := Fneg (x, y) :: !insns
+  | NonTail x, FAddD (y, z) -> insns := Fadd (x, y, z) :: !insns
+  | NonTail x, FSubD (y, z) -> insns := Fsub (x, y, z) :: !insns
+  | NonTail x, FMulD (y, z) -> insns := Fmul (x, y, z) :: !insns
+  | NonTail x, FDivD (y, z) -> insns := Fdiv (x, y, z) :: !insns
   | NonTail x, LdDF (y, z') -> (
       match z' with
       | V id ->
-          Printf.fprintf oc "\tadd a22, %s, %s\n" id y;
-          if List.mem x allregs then Printf.fprintf oc "\tlw %s, 0(a22)\n" x
-          else Printf.fprintf oc "\tflw %s, 0(a22)\n" x
-      | C i -> Printf.fprintf oc "\tflw %s, %d(%s)\n" x i y)
+          insns := Add ("a22", id, y) :: !insns;
+          if List.mem x allregs then insns := Lw (x, 0, "a22") :: !insns
+          else insns := Flw (x, 0, "a22") :: !insns
+      | C i -> insns := Flw (x, i, y) :: !insns)
   | NonTail _, StDF (x, y, z') -> (
       match z' with
       | V id ->
-          Printf.fprintf oc "\tadd a22, %s, %s\n" id y;
-          if List.mem x allregs then Printf.fprintf oc "\tsw %s, 0(a22)\n" x
-          else Printf.fprintf oc "\tfsw %s, 0(a22)\n" x
-      | C i -> Printf.fprintf oc "\tfsw %s, %d(%s)\n" x i y)
-  | NonTail _, Comment s -> Printf.fprintf oc "\t# %s\n" s
+          insns := Add ("a22", id, y) :: !insns;
+          if List.mem x allregs then insns := Sw (x, 0, "a22") :: !insns
+          else insns := Fsw (x, 0, "a22") :: !insns
+      | C i -> insns := Fsw (x, i, y) :: !insns)
+  | NonTail _, Comment s -> ()
   (* 退避の仮想命令の実装 *)
   | NonTail _, Save (x, y)
     when List.mem x allregs && not (set_exist y !stackset) ->
       save y;
-      Printf.fprintf oc "\tsw %s, %d(%s)\n" x (offset y) reg_sp
+      insns := Sw (x, offset y, reg_sp) :: !insns
   | NonTail _, Save (x, y)
     when List.mem x allfregs && not (set_exist y !stackset) ->
       save y;
-      Printf.fprintf oc "\tfsw %s, %d(%s)\n" x (offset y) reg_sp
+      insns := Fsw (x, offset y, reg_sp) :: !insns
   | NonTail _, Save (x, y) ->
       assert (set_exist y !stackset);
       ()
   (* 復帰の仮想命令の実装 *)
   | NonTail x, Restore y when List.mem x allregs ->
-      Printf.fprintf oc "\tlw %s, %d(%s)\n" x (offset y) reg_sp
+      insns := Lw (x, offset y, reg_sp) :: !insns
   | NonTail x, Restore y ->
       assert (List.mem x allfregs);
-      Printf.fprintf oc "\tflw %s, %d(%s)\n" x (offset y) reg_sp
+      insns := Flw (x, offset y, reg_sp) :: !insns
   (* 末尾だったら計算結果を第一レジスタにセットしてret *)
   | Tail, ((Nop | St _ | StDF _ | Comment _ | Save _) as exp) ->
       g' oc (NonTail (Id.gentmp Type.Unit), exp);
-      Printf.fprintf oc "\tjalr zero, ra, 0 # ret\n"
+      insns := Jalr ("zero", "ra", 0) :: !insns
   | ( Tail,
       ((Set _ | SetL _ | Mov _ | Add _ | Sub _ | SLL _ | SRL _ | Ld _) as exp) )
     ->
       g' oc (NonTail regs.(0), exp);
-      Printf.fprintf oc "\tjalr zero, ra, 0 # ret\n"
+      insns := Jalr ("zero", "ra", 0) :: !insns
   | Tail, (Neg x as exp) ->
       if List.mem x allregs then g' oc (NonTail regs.(0), exp)
       else g' oc (NonTail fregs.(0), exp);
-      Printf.fprintf oc "\tjalr zero, ra, 0 # ret\n"
+      insns := Jalr ("zero", "ra", 0) :: !insns
   | ( Tail,
       (( SetF _ | FMovD _ | FNegD _ | FAddD _ | FSubD _ | FMulD _ | FDivD _
        | LdDF _ ) as exp) ) ->
       g' oc (NonTail fregs.(0), exp);
-      Printf.fprintf oc "\tjalr zero, ra, 0 # ret\n"
+      insns := Jalr ("zero", "ra", 0) :: !insns
   | Tail, (Restore x as exp) ->
       (match locate x with
       | [ i ] -> g' oc (NonTail regs.(0), exp)
       | [ i; j ] when i + 1 = j -> g' oc (NonTail fregs.(0), exp)
       | _ -> assert false);
-      Printf.fprintf oc "\tjalr zero, ra, 0 # ret\n"
+      insns := Jalr ("zero", "ra", 0) :: !insns
   | Tail, IfEq (x, y', e1, e2) ->
       let b_else = Id.genid "be_else" in
-      Printf.fprintf oc "\tbne %s, %s, %s\n" x (pp_id_or_imm y') b_else;
+      insns := Bne (x, pp_id_or_imm y', b_else) :: !insns;
       let stackset_back = !stackset in
       g oc (Tail, e1);
-      Printf.fprintf oc "%s:\n" b_else;
+      insns := Label b_else :: !insns;
       stackset := stackset_back;
       g oc (Tail, e2)
   | Tail, IfLE (x, y', e1, e2) ->
       let b_else = Id.genid "ble_else" in
-      Printf.fprintf oc "\tblt %s, %s, %s\n" (pp_id_or_imm y') x b_else;
+      insns := Blt (pp_id_or_imm y', x, b_else) :: !insns;
       let stackset_back = !stackset in
       g oc (Tail, e1);
-      Printf.fprintf oc "%s:\n" b_else;
+      insns := Label b_else :: !insns;
       stackset := stackset_back;
       g oc (Tail, e2)
   | Tail, IfGE (x, y', e1, e2) ->
       let b_else = Id.genid "bge_else" in
-      Printf.fprintf oc "\tblt %s, %s, %s\n" x (pp_id_or_imm y') b_else;
+      insns := Blt (x, pp_id_or_imm y', b_else) :: !insns;
       let stackset_back = !stackset in
       g oc (Tail, e1);
-      Printf.fprintf oc "%s:\n" b_else;
+      insns := Label b_else :: !insns;
       stackset := stackset_back;
       g oc (Tail, e2)
   | Tail, IfFEq (x, y, e1, e2) ->
       let b_else = Id.genid "fbe_else" in
-      Printf.fprintf oc "\tfeq a20, %s, %s\n" x y;
-      Printf.fprintf oc "\tbeq a20, zero, %s\n" b_else;
+      insns := Feq ("a20", x, y) :: !insns;
+      insns := Beq ("a20", "zero", b_else) :: !insns;
       let stackset_back = !stackset in
       g oc (Tail, e1);
-      Printf.fprintf oc "%s:\n" b_else;
+      insns := Label b_else :: !insns;
       stackset := stackset_back;
       g oc (Tail, e2)
   | Tail, IfFLE (x, y, e1, e2) ->
       let b_else = Id.genid "fble_else" in
-      Printf.fprintf oc "\tfle a20, %s, %s\n" x y;
-      Printf.fprintf oc "\tbeq a20, zero, %s\n" b_else;
+      insns := Fle ("a20", x, y) :: !insns;
+      insns := Beq ("a20", "zero", b_else) :: !insns;
       let stackset_back = !stackset in
       g oc (Tail, e1);
-      Printf.fprintf oc "%s:\n" b_else;
+      insns := Label b_else :: !insns;
       stackset := stackset_back;
       g oc (Tail, e2)
   | NonTail z, IfEq (x, y', e1, e2) ->
       let b_else = Id.genid "be_else" in
       let b_cont = Id.genid "be_cont" in
-      Printf.fprintf oc "\tbne %s, %s, %s\n" x (pp_id_or_imm y') b_else;
+      insns := Bne (x, pp_id_or_imm y', b_else) :: !insns;
       let stackset_back = !stackset in
       g oc (NonTail z, e1);
       let stackset1 = !stackset in
-      Printf.fprintf oc "\tjump %s\n" b_cont;
-      Printf.fprintf oc "%s:\n" b_else;
+      insns := Jump b_cont :: !insns;
+      insns := Label b_else :: !insns;
       stackset := stackset_back;
       g oc (NonTail z, e2);
-      Printf.fprintf oc "%s:\n" b_cont;
+      insns := Label b_cont :: !insns;
       let stackset2 = !stackset in
       stackset := set_inter stackset1 stackset2
   | NonTail z, IfLE (x, y', e1, e2) ->
       let b_else = Id.genid "ble_else" in
       let b_cont = Id.genid "ble_cont" in
-      Printf.fprintf oc "\tblt %s, %s, %s\n" (pp_id_or_imm y') x b_else;
+      insns := Blt (pp_id_or_imm y', x, b_else) :: !insns;
       let stackset_back = !stackset in
       g oc (NonTail z, e1);
       let stackset1 = !stackset in
-      Printf.fprintf oc "\tjump %s\n" b_cont;
-      Printf.fprintf oc "%s:\n" b_else;
+      insns := Jump b_cont :: !insns;
+      insns := Label b_else :: !insns;
       stackset := stackset_back;
       g oc (NonTail z, e2);
-      Printf.fprintf oc "%s:\n" b_cont;
+      insns := Label b_cont :: !insns;
       let stackset2 = !stackset in
       stackset := set_inter stackset1 stackset2
   | NonTail z, IfGE (x, y', e1, e2) ->
       let b_else = Id.genid "bge_else" in
       let b_cont = Id.genid "bge_cont" in
-      Printf.fprintf oc "\tblt %s, %s, %s\n" x (pp_id_or_imm y') b_else;
+      insns := Blt (x, pp_id_or_imm y', b_else) :: !insns;
       let stackset_back = !stackset in
       g oc (NonTail z, e1);
       let stackset1 = !stackset in
-      Printf.fprintf oc "\tjump %s\n" b_cont;
-      Printf.fprintf oc "%s:\n" b_else;
+      insns := Jump b_cont :: !insns;
+      insns := Label b_else :: !insns;
       stackset := stackset_back;
       g oc (NonTail z, e2);
-      Printf.fprintf oc "%s:\n" b_cont;
+      insns := Label b_cont :: !insns;
       let stackset2 = !stackset in
       stackset := set_inter stackset1 stackset2
   | NonTail z, IfFEq (x, y, e1, e2) ->
       let b_else = Id.genid "fbe_else" in
       let b_cont = Id.genid "fbe_cont" in
-      Printf.fprintf oc "\tfeq a20, %s, %s\n" x y;
-      Printf.fprintf oc "\tbeq a20, zero, %s\n" b_else;
+      insns := Feq ("a20", x, y) :: !insns;
+      insns := Beq ("a20", "zero", b_else) :: !insns;
       let stackset_back = !stackset in
       g oc (NonTail z, e1);
       let stackset1 = !stackset in
-      Printf.fprintf oc "\tjump %s\n" b_cont;
-      Printf.fprintf oc "%s:\n" b_else;
+      insns := Jump b_cont :: !insns;
+      insns := Label b_else :: !insns;
       stackset := stackset_back;
       g oc (NonTail z, e2);
-      Printf.fprintf oc "%s:\n" b_cont;
+      insns := Label b_cont :: !insns;
       let stackset2 = !stackset in
       stackset := set_inter stackset1 stackset2
   | NonTail z, IfFLE (x, y, e1, e2) ->
       let b_else = Id.genid "fble_else" in
       let b_cont = Id.genid "fble_cont" in
-      Printf.fprintf oc "\tfle a20, %s, %s\n" x y;
-      Printf.fprintf oc "\tbeq a20, zero, %s\n" b_else;
+      insns := Fle ("a20", x, y) :: !insns;
+      insns := Beq ("a20", "zero", b_else) :: !insns;
       let stackset_back = !stackset in
       g oc (NonTail z, e1);
       let stackset1 = !stackset in
-      Printf.fprintf oc "\tjump %s\n" b_cont;
-      Printf.fprintf oc "%s:\n" b_else;
+      insns := Jump b_cont :: !insns;
+      insns := Label b_else :: !insns;
       stackset := stackset_back;
       g oc (NonTail z, e2);
-      Printf.fprintf oc "%s:\n" b_cont;
+      insns := Label b_cont :: !insns;
       let stackset2 = !stackset in
       stackset := set_inter stackset1 stackset2
   (* 関数呼び出しの仮想命令の実装 *)
   | Tail, CallCls (x, ys, zs) ->
       (* 末尾呼び出し *)
       g'_args oc [ (x, reg_cl) ] ys zs;
-      Printf.fprintf oc "\tlw %s, 0(%s)\n" reg_sw reg_cl;
-      Printf.fprintf oc "\tjalr zero, %s, 0\n" reg_sw
+      insns := Lw (reg_sw, 0, reg_cl) :: !insns;
+      insns := Jalr ("zero", reg_sw, 0) :: !insns
   | Tail, CallDir (Id.L x, ys, zs) ->
       (* 末尾呼び出し *)
       g'_args oc [] ys zs;
-      Printf.fprintf oc "\tjump %s\n" x
+      insns := Jump x :: !insns
   | NonTail a, CallCls (x, ys, zs) ->
       g'_args oc [ (x, reg_cl) ] ys zs;
       let ss = stacksize () in
-      Printf.fprintf oc "\tsw %s, %d(%s)\n" reg_ra (-ss) reg_sp;
-      Printf.fprintf oc "\tlw %s, 0(%s)\n" reg_sw reg_cl;
-      Printf.fprintf oc "\taddi %s, %s, %d\n" reg_sp reg_sp ((-1 * ss) - 1);
-      Printf.fprintf oc "\tjalr ra, %s, 0 # call\n" reg_sw;
-      Printf.fprintf oc "\taddi %s, %s, %d\n" reg_sp reg_sp (ss + 1);
-      Printf.fprintf oc "\tlw %s, %d(%s)\n" reg_ra (-ss) reg_sp;
+      insns := Sw (reg_ra, -ss, reg_sp) :: !insns;
+      insns := Lw (reg_sw, 0, reg_cl) :: !insns;
+      insns := Addi (reg_sp, reg_sp, (-1 * ss) - 1) :: !insns;
+      insns := Jalr ("ra", reg_sw, 0) :: !insns;
+      insns := Addi (reg_sp, reg_sp, ss + 1) :: !insns;
+      insns := Lw (reg_ra, -ss, reg_sp) :: !insns;
       if List.mem a allregs && a <> regs.(0) then
-        Printf.fprintf oc "\tadd %s, %s, zero\n" a regs.(0)
+        insns := Add (a, regs.(0), "zero") :: !insns
       else if List.mem a allfregs && a <> fregs.(0) then
-        Printf.fprintf oc "\tfadd %s, %s, fzero\n" a fregs.(0)
+        insns := Fadd (a, fregs.(0), "fzero") :: !insns
   | NonTail a, CallDir (Id.L x, ys, zs) ->
       g'_args oc [] ys zs;
       let ss = stacksize () in
-      Printf.fprintf oc "\tsw %s, %d(%s)\n" reg_ra (-ss) reg_sp;
-      Printf.fprintf oc "\taddi %s, %s, %d\n" reg_sp reg_sp ((-1 * ss) - 1);
-      Printf.fprintf oc "\tjal ra, %s # call\n" x;
-      Printf.fprintf oc "\taddi %s, %s, %d\n" reg_sp reg_sp (ss + 1);
-      Printf.fprintf oc "\tlw %s, %d(%s)\n" reg_ra (-ss) reg_sp;
+      insns := Sw (reg_ra, -ss, reg_sp) :: !insns;
+      insns := Addi (reg_sp, reg_sp, (-1 * ss) - 1) :: !insns;
+      insns := Jal ("ra", x) :: !insns;
+      insns := Addi (reg_sp, reg_sp, ss + 1) :: !insns;
+      insns := Lw (reg_ra, -ss, reg_sp) :: !insns;
       if List.mem a allregs && a <> regs.(0) then
-        Printf.fprintf oc "\tadd %s, %s, zero\n" a regs.(0)
+        insns := Add (a, regs.(0), "zero") :: !insns
       else if List.mem a allfregs && a <> fregs.(0) then
-        Printf.fprintf oc "\tfadd %s, %s, fzero\n" a fregs.(0)
-
-and g'_tail_if oc e1 e2 b bn =
-  let b_else = Id.genid (b ^ "_else") in
-  Printf.fprintf oc "\t%s\t%s\n" bn b_else;
-  let stackset_back = !stackset in
-  g oc (Tail, e1);
-  Printf.fprintf oc "%s:\n" b_else;
-  stackset := stackset_back;
-  g oc (Tail, e2)
-
-and g'_non_tail_if oc dest e1 e2 b bn =
-  let b_else = Id.genid (b ^ "_else") in
-  let b_cont = Id.genid (b ^ "_cont") in
-  Printf.fprintf oc "\t%s\t%s\n" bn b_else;
-  let stackset_back = !stackset in
-  g oc (dest, e1);
-  let stackset1 = !stackset in
-  Printf.fprintf oc "\tb\t%s\n" b_cont;
-  Printf.fprintf oc "%s:\n" b_else;
-  stackset := stackset_back;
-  g oc (dest, e2);
-  Printf.fprintf oc "%s:\n" b_cont;
-  let stackset2 = !stackset in
-  stackset := set_inter stackset1 stackset2
+        insns := Fadd (a, fregs.(0), "fzero") :: !insns
 
 and g'_args oc x_reg_cl ys zs =
   let i, yrs =
@@ -349,7 +365,7 @@ and g'_args oc x_reg_cl ys zs =
       (0, x_reg_cl) ys
   in
   List.iter
-    (fun (y, r) -> Printf.fprintf oc "\tadd %s, %s, zero\n" r y)
+    (fun (y, r) -> insns := Add (r, y, "zero") :: !insns)
     (shuffle reg_sw yrs);
   let d, zfrs =
     List.fold_left
@@ -357,17 +373,17 @@ and g'_args oc x_reg_cl ys zs =
       (0, []) zs
   in
   List.iter
-    (fun (z, fr) -> Printf.fprintf oc "\tfmv %s, %s\n" fr z)
+    (fun (z, fr) -> insns := Fmv (fr, z) :: !insns)
     (* Printf.fprintf oc "\tfmv %s, %s\n" (co_freg z) (co_freg fr)) *)
     (shuffle reg_fsw zfrs)
 
 let h oc { name = Id.L x; args = _; fargs = _; body = e; ret = _ } =
-  Printf.fprintf oc "%s:\n" x;
+  insns := Label x :: !insns;
   stackset := [];
   stackmap := [];
   g oc (Tail, e)
 
-let f oc (Prog (data, fundefs, e)) =
+let rec f oc (Prog (data, fundefs, e)) =
   Format.eprintf "generating assembly...@.";
   Printf.fprintf oc "\tjump min_caml_start\n";
   let print_file filename =
@@ -389,10 +405,113 @@ let f oc (Prog (data, fundefs, e)) =
       Printf.fprintf oc "\tfli a0, %f\n" d)
     data;
   List.iter (fun fundef -> h oc fundef) fundefs;
-  Printf.fprintf oc "min_caml_start:\n";
-  Printf.fprintf oc "\taddi sp, sp, -28\n";
+  insns := Label "min_caml_start" :: !insns;
+  insns := Addi ("sp", "sp", -28) :: !insns;
   (* from gcc; why 112? -> changed to 28 (for no reason)*)
   stackset := [];
   stackmap := [];
   g oc (NonTail "a0", e);
-  Printf.fprintf oc "\tjalr zero, ra, 0 # ret\n"
+  insns := Jalr ("zero", "ra", 0) :: !insns;
+  print oc (List.rev !insns)
+
+and print oc insns =
+  match insns with
+  | cur :: rest -> (
+      match cur with
+      | Nop ->
+          Printf.fprintf oc "\tnop\n";
+          print oc rest
+      | Li (r1, i) ->
+          Printf.fprintf oc "\tli %s, %d\n" r1 i;
+          print oc rest
+      | Fli (r1, f) ->
+          Printf.fprintf oc "\tfli %s, %f\n" r1 f;
+          print oc rest
+      | La (r1, l) ->
+          Printf.fprintf oc "\tla %s, %s\n" r1 l;
+          print oc rest
+      | Add (r1, r2, r3) ->
+          Printf.fprintf oc "\tadd %s, %s, %s\n" r1 r2 r3;
+          print oc rest
+      | Sub (r1, r2, r3) ->
+          Printf.fprintf oc "\tsub %s, %s, %s\n" r1 r2 r3;
+          print oc rest
+      | Addi (r1, r2, i) ->
+          Printf.fprintf oc "\taddi %s, %s, %d\n" r1 r2 i;
+          print oc rest
+      | Sll (r1, r2, r3) ->
+          Printf.fprintf oc "\tsll %s, %s, %s\n" r1 r2 r3;
+          print oc rest
+      | Srl (r1, r2, r3) ->
+          Printf.fprintf oc "\tsrl %s, %s, %s\n" r1 r2 r3;
+          print oc rest
+      | Slli (r1, r2, i) ->
+          Printf.fprintf oc "\tslli %s, %s, %d\n" r1 r2 i;
+          print oc rest
+      | Srli (r1, r2, i) ->
+          Printf.fprintf oc "\tsrli %s, %s, %d\n" r1 r2 i;
+          print oc rest
+      | Fadd (r1, r2, r3) ->
+          Printf.fprintf oc "\tfadd %s, %s, %s\n" r1 r2 r3;
+          print oc rest
+      | Fsub (r1, r2, r3) ->
+          Printf.fprintf oc "\tfsub %s, %s, %s\n" r1 r2 r3;
+          print oc rest
+      | Fmul (r1, r2, r3) ->
+          Printf.fprintf oc "\tfmul %s, %s, %s\n" r1 r2 r3;
+          print oc rest
+      | Fdiv (r1, r2, r3) ->
+          Printf.fprintf oc "\tfdiv %s, %s, %s\n" r1 r2 r3;
+          print oc rest
+      | Fmv (r1, r2) ->
+          Printf.fprintf oc "\tfmv %s, %s\n" r1 r2;
+          print oc rest
+      | Fmvxw (r1, r2) ->
+          Printf.fprintf oc "\tfmv.x.w %s, %s\n" r1 r2;
+          print oc rest
+      | Fmvwx (r1, r2) ->
+          Printf.fprintf oc "\tfmv.w.x %s, %s\n" r1 r2;
+          print oc rest
+      | Fneg (r1, r2) ->
+          Printf.fprintf oc "\tfneg %s, %s\n" r1 r2;
+          print oc rest
+      | Lw (r1, i, r2) ->
+          Printf.fprintf oc "\tlw %s, %d(%s)\n" r1 i r2;
+          print oc rest
+      | Flw (r1, i, r2) ->
+          Printf.fprintf oc "\tflw %s, %d(%s)\n" r1 i r2;
+          print oc rest
+      | Sw (r1, i, r2) ->
+          Printf.fprintf oc "\tsw %s, %d(%s)\n" r1 i r2;
+          print oc rest
+      | Fsw (r1, i, r2) ->
+          Printf.fprintf oc "\tfsw %s, %d(%s)\n" r1 i r2;
+          print oc rest
+      | Beq (r1, r2, l) ->
+          Printf.fprintf oc "\tbeq %s, %s, %s\n" r1 r2 l;
+          print oc rest
+      | Bne (r1, r2, l) ->
+          Printf.fprintf oc "\tbne %s, %s, %s\n" r1 r2 l;
+          print oc rest
+      | Blt (r1, r2, l) ->
+          Printf.fprintf oc "\tblt %s, %s, %s\n" r1 r2 l;
+          print oc rest
+      | Feq (r1, r2, r3) ->
+          Printf.fprintf oc "\tfeq %s, %s, %s\n" r1 r2 r3;
+          print oc rest
+      | Fle (r1, r2, r3) ->
+          Printf.fprintf oc "\tfle %s, %s, %s\n" r1 r2 r3;
+          print oc rest
+      | Jump l ->
+          Printf.fprintf oc "\tjump %s\n" l;
+          print oc rest
+      | Jalr (r1, r2, i) ->
+          Printf.fprintf oc "\tjalr %s, %s, %d\n" r1 r2 i;
+          print oc rest
+      | Jal (r1, r2) ->
+          Printf.fprintf oc "\tjal %s, %s\n" r1 r2;
+          print oc rest
+      | Label l ->
+          Printf.fprintf oc "%s:\n" l;
+          print oc rest)
+  | [] -> ()
