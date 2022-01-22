@@ -412,7 +412,67 @@ let rec f oc (Prog (data, fundefs, e)) =
   stackmap := [];
   g oc (NonTail "a0", e);
   insns := Jalr ("zero", "ra", 0) :: !insns;
+  insns := optimize !insns;
   print oc (List.rev !insns)
+
+and optimize insns =
+  let rec replace = function
+    | [] -> []
+    | cur :: rest -> (
+        let default _ = cur :: replace rest in
+        try
+          match cur with
+          | Add (x, y, z) when z = "zero" -> (
+              match List.hd rest with
+              | Add (x', y', z') when z' = "zero" ->
+                  if x = y' then Add (x', y, "zero") :: replace (List.tl rest)
+                  else default ()
+              | _ -> default ())
+          | Addi (x, y, i) -> (
+              match List.hd rest with
+              | Addi (x', y', i') ->
+                  if x = y && x' = y' && x = x' && y = y' && i = -i' then
+                    replace (List.tl rest)
+                  else default ()
+              | _ -> default ())
+          | Lw (lx, li, ly) -> (
+              match List.hd rest with
+              | Sw (sx, si, sy) ->
+                  if lx = sx && li = si && ly = sy then
+                    cur :: replace (List.tl rest)
+                  else default ()
+              | _ -> default ())
+          | Flw (lx, li, ly) -> (
+              match List.hd rest with
+              | Fsw (sx, si, sy) ->
+                  if lx = sx && li = si && ly = sy then
+                    cur :: replace (List.tl rest)
+                  else default ()
+              | _ -> default ())
+          | Sw (lx, li, ly) -> (
+              match List.hd rest with
+              | Lw (sx, si, sy) ->
+                  if lx = sx && li = si && ly = sy then
+                    cur :: replace (List.tl rest)
+                  else default ()
+              | _ -> default ())
+          | Fsw (lx, li, ly) -> (
+              match List.hd rest with
+              | Flw (sx, si, sy) ->
+                  if lx = sx && li = si && ly = sy then
+                    cur :: replace (List.tl rest)
+                  else default ()
+              | _ -> default ())
+          | e -> default ()
+        with _ -> default ())
+  in
+  let rec iter n e =
+    if n = 1000 then e
+    else
+      let e' = replace e in
+      if e = e' then e else iter (n + 1) e'
+  in
+  iter 1000 insns
 
 and print oc insns =
   match insns with
