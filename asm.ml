@@ -102,15 +102,6 @@ let is_reg x =
   || Array.exists (fun a -> a = x) fregs
   || x = reg_sp || x = reg_hp || x = reg_ra
 
-let co_freg_table =
-  let ht = Hashtbl.create 13 in
-  for i = 0 to 12 do
-    Hashtbl.add ht (Printf.sprintf "f%d" i) (Printf.sprintf "f%d" (i + 13))
-  done;
-  ht
-
-let co_freg freg = Hashtbl.find co_freg_table freg
-
 let rec remove_and_uniq xs = function
   | [] -> []
   | x :: ys when set_exist x xs -> remove_and_uniq xs ys

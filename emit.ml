@@ -374,7 +374,6 @@ and g'_args oc x_reg_cl ys zs =
   in
   List.iter
     (fun (z, fr) -> insns := Fmv (fr, z) :: !insns)
-    (* Printf.fprintf oc "\tfmv %s, %s\n" (co_freg z) (co_freg fr)) *)
     (shuffle reg_fsw zfrs)
 
 let h oc { name = Id.L x; args = _; fargs = _; body = e; ret = _ } =
