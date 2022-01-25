@@ -82,8 +82,17 @@ let compile in_channel out_channel =
     Printf.fprintf oc "[Register Allocated]\n";
     Printf.fprintf oc "%s\n" (Virtual.print allocated));
 
-  (* Asm.prog -> output *)
-  Emit.f out_channel allocated
+  (* Asm.prog -> Emit.exp list *)
+  let assembly = Emit.f allocated in
+
+  (* if !verbose then (
+     let oc = open_out "output/08-asm-before-opt.txt" in
+     Printf.fprintf oc "[Assembly before optimizations]\n";
+     Printf.fprintf oc "%s\n" (Emit.print assembly)); *)
+
+  (* Emit.exp list -> output *)
+  let final = Emit.optimize assembly in
+  Emit.print_all out_channel final
 
 let file f =
   let in_channel = open_in f in

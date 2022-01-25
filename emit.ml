@@ -75,25 +75,22 @@ let rec shuffle sw xys =
   | [], [] -> []
   | (x, y) :: xys, [] ->
       (* no acyclic moves; resolve a cyclic move *)
-      (y, sw)
-      ::
-      (x, y)
-      ::
-      shuffle sw
-        (List.map (function y', z when y = y' -> (sw, z) | yz -> yz) xys)
+      (y, sw) :: (x, y)
+      :: shuffle sw
+           (List.map (function y', z when y = y' -> (sw, z) | yz -> yz) xys)
   | xys, acyc -> acyc @ shuffle sw xys
 
 type dest = Tail | NonTail of Id.t
 (* 末尾かどうかを表すデータ型 *)
 
-let rec g oc = function
+let rec g = function
   (* 命令列のアセンブリ生成 *)
-  | dest, Ans exp -> g' oc (dest, exp)
+  | dest, Ans exp -> g' (dest, exp)
   | dest, Let ((x, t), exp, e) ->
-      g' oc (NonTail x, exp);
-      g oc (dest, e)
+      g' (NonTail x, exp);
+      g (dest, e)
 
-and g' oc = function
+and g' = function
   (* 各命令のアセンブリ生成 *)
   (* 末尾でなかったら計算結果をdestにセット *)
   | NonTail _, Nop -> ()
@@ -186,81 +183,81 @@ and g' oc = function
       insns := Flw (x, offset y, reg_sp) :: !insns
   (* 末尾だったら計算結果を第一レジスタにセットしてret *)
   | Tail, ((Nop | St _ | StDF _ | Comment _ | Save _) as exp) ->
-      g' oc (NonTail (Id.gentmp Type.Unit), exp);
+      g' (NonTail (Id.gentmp Type.Unit), exp);
       insns := Jalr ("zero", "ra", 0) :: !insns
   | ( Tail,
       ((Set _ | SetL _ | Mov _ | Add _ | Sub _ | SLL _ | SRL _ | Ld _) as exp) )
     ->
-      g' oc (NonTail regs.(0), exp);
+      g' (NonTail regs.(0), exp);
       insns := Jalr ("zero", "ra", 0) :: !insns
   | Tail, (Neg x as exp) ->
-      if List.mem x allregs then g' oc (NonTail regs.(0), exp)
-      else g' oc (NonTail fregs.(0), exp);
+      if List.mem x allregs then g' (NonTail regs.(0), exp)
+      else g' (NonTail fregs.(0), exp);
       insns := Jalr ("zero", "ra", 0) :: !insns
   | ( Tail,
       (( SetF _ | FMovD _ | FNegD _ | FAddD _ | FSubD _ | FMulD _ | FDivD _
        | LdDF _ ) as exp) ) ->
-      g' oc (NonTail fregs.(0), exp);
+      g' (NonTail fregs.(0), exp);
       insns := Jalr ("zero", "ra", 0) :: !insns
   | Tail, (Restore x as exp) ->
       (match locate x with
-      | [ i ] -> g' oc (NonTail regs.(0), exp)
-      | [ i; j ] when i + 1 = j -> g' oc (NonTail fregs.(0), exp)
+      | [ i ] -> g' (NonTail regs.(0), exp)
+      | [ i; j ] when i + 1 = j -> g' (NonTail fregs.(0), exp)
       | _ -> assert false);
       insns := Jalr ("zero", "ra", 0) :: !insns
   | Tail, IfEq (x, y', e1, e2) ->
       let b_else = Id.genid "be_else" in
       insns := Bne (x, pp_id_or_imm y', b_else) :: !insns;
       let stackset_back = !stackset in
-      g oc (Tail, e1);
+      g (Tail, e1);
       insns := Label b_else :: !insns;
       stackset := stackset_back;
-      g oc (Tail, e2)
+      g (Tail, e2)
   | Tail, IfLE (x, y', e1, e2) ->
       let b_else = Id.genid "ble_else" in
       insns := Blt (pp_id_or_imm y', x, b_else) :: !insns;
       let stackset_back = !stackset in
-      g oc (Tail, e1);
+      g (Tail, e1);
       insns := Label b_else :: !insns;
       stackset := stackset_back;
-      g oc (Tail, e2)
+      g (Tail, e2)
   | Tail, IfGE (x, y', e1, e2) ->
       let b_else = Id.genid "bge_else" in
       insns := Blt (x, pp_id_or_imm y', b_else) :: !insns;
       let stackset_back = !stackset in
-      g oc (Tail, e1);
+      g (Tail, e1);
       insns := Label b_else :: !insns;
       stackset := stackset_back;
-      g oc (Tail, e2)
+      g (Tail, e2)
   | Tail, IfFEq (x, y, e1, e2) ->
       let b_else = Id.genid "fbe_else" in
       insns := Feq ("a20", x, y) :: !insns;
       insns := Beq ("a20", "zero", b_else) :: !insns;
       let stackset_back = !stackset in
-      g oc (Tail, e1);
+      g (Tail, e1);
       insns := Label b_else :: !insns;
       stackset := stackset_back;
-      g oc (Tail, e2)
+      g (Tail, e2)
   | Tail, IfFLE (x, y, e1, e2) ->
       let b_else = Id.genid "fble_else" in
       insns := Fle ("a20", x, y) :: !insns;
       insns := Beq ("a20", "zero", b_else) :: !insns;
       let stackset_back = !stackset in
-      g oc (Tail, e1);
+      g (Tail, e1);
       insns := Label b_else :: !insns;
       stackset := stackset_back;
-      g oc (Tail, e2)
+      g (Tail, e2)
   | NonTail z, IfEq (x, y', e1, e2) ->
       let b_else = Id.genid "be_else" in
       let b_cont = Id.genid "be_cont" in
       insns := Bne (x, pp_id_or_imm y', b_else) :: !insns;
       let stackset_back = !stackset in
-      g oc (NonTail z, e1);
+      g (NonTail z, e1);
       let stackset1 = !stackset in
       insns := Jump b_cont :: !insns;
       insns := Label b_else :: !insns;
       stackset := stackset_back;
-      g oc (NonTail z, e2);
+      g (NonTail z, e2);
       insns := Label b_cont :: !insns;
       let stackset2 = !stackset in
       stackset := set_inter stackset1 stackset2
@@ -269,12 +266,12 @@ and g' oc = function
       let b_cont = Id.genid "ble_cont" in
       insns := Blt (pp_id_or_imm y', x, b_else) :: !insns;
       let stackset_back = !stackset in
-      g oc (NonTail z, e1);
+      g (NonTail z, e1);
       let stackset1 = !stackset in
       insns := Jump b_cont :: !insns;
       insns := Label b_else :: !insns;
       stackset := stackset_back;
-      g oc (NonTail z, e2);
+      g (NonTail z, e2);
       insns := Label b_cont :: !insns;
       let stackset2 = !stackset in
       stackset := set_inter stackset1 stackset2
@@ -283,12 +280,12 @@ and g' oc = function
       let b_cont = Id.genid "bge_cont" in
       insns := Blt (x, pp_id_or_imm y', b_else) :: !insns;
       let stackset_back = !stackset in
-      g oc (NonTail z, e1);
+      g (NonTail z, e1);
       let stackset1 = !stackset in
       insns := Jump b_cont :: !insns;
       insns := Label b_else :: !insns;
       stackset := stackset_back;
-      g oc (NonTail z, e2);
+      g (NonTail z, e2);
       insns := Label b_cont :: !insns;
       let stackset2 = !stackset in
       stackset := set_inter stackset1 stackset2
@@ -298,12 +295,12 @@ and g' oc = function
       insns := Feq ("a20", x, y) :: !insns;
       insns := Beq ("a20", "zero", b_else) :: !insns;
       let stackset_back = !stackset in
-      g oc (NonTail z, e1);
+      g (NonTail z, e1);
       let stackset1 = !stackset in
       insns := Jump b_cont :: !insns;
       insns := Label b_else :: !insns;
       stackset := stackset_back;
-      g oc (NonTail z, e2);
+      g (NonTail z, e2);
       insns := Label b_cont :: !insns;
       let stackset2 = !stackset in
       stackset := set_inter stackset1 stackset2
@@ -313,27 +310,27 @@ and g' oc = function
       insns := Fle ("a20", x, y) :: !insns;
       insns := Beq ("a20", "zero", b_else) :: !insns;
       let stackset_back = !stackset in
-      g oc (NonTail z, e1);
+      g (NonTail z, e1);
       let stackset1 = !stackset in
       insns := Jump b_cont :: !insns;
       insns := Label b_else :: !insns;
       stackset := stackset_back;
-      g oc (NonTail z, e2);
+      g (NonTail z, e2);
       insns := Label b_cont :: !insns;
       let stackset2 = !stackset in
       stackset := set_inter stackset1 stackset2
   (* 関数呼び出しの仮想命令の実装 *)
   | Tail, CallCls (x, ys, zs) ->
       (* 末尾呼び出し *)
-      g'_args oc [ (x, reg_cl) ] ys zs;
+      g'_args [ (x, reg_cl) ] ys zs;
       insns := Lw (reg_sw, 0, reg_cl) :: !insns;
       insns := Jalr ("zero", reg_sw, 0) :: !insns
   | Tail, CallDir (Id.L x, ys, zs) ->
       (* 末尾呼び出し *)
-      g'_args oc [] ys zs;
+      g'_args [] ys zs;
       insns := Jump x :: !insns
   | NonTail a, CallCls (x, ys, zs) ->
-      g'_args oc [ (x, reg_cl) ] ys zs;
+      g'_args [ (x, reg_cl) ] ys zs;
       let ss = stacksize () in
       insns := Sw (reg_ra, -ss, reg_sp) :: !insns;
       insns := Lw (reg_sw, 0, reg_cl) :: !insns;
@@ -346,7 +343,7 @@ and g' oc = function
       else if List.mem a allfregs && a <> fregs.(0) then
         insns := Fadd (a, fregs.(0), "fzero") :: !insns
   | NonTail a, CallDir (Id.L x, ys, zs) ->
-      g'_args oc [] ys zs;
+      g'_args [] ys zs;
       let ss = stacksize () in
       insns := Sw (reg_ra, -ss, reg_sp) :: !insns;
       insns := Addi (reg_sp, reg_sp, (-1 * ss) - 1) :: !insns;
@@ -358,7 +355,7 @@ and g' oc = function
       else if List.mem a allfregs && a <> fregs.(0) then
         insns := Fadd (a, fregs.(0), "fzero") :: !insns
 
-and g'_args oc x_reg_cl ys zs =
+and g'_args x_reg_cl ys zs =
   let i, yrs =
     List.fold_left
       (fun (i, yrs) y -> (i + 1, (y, regs.(i)) :: yrs))
@@ -376,45 +373,24 @@ and g'_args oc x_reg_cl ys zs =
     (fun (z, fr) -> insns := Fmv (fr, z) :: !insns)
     (shuffle reg_fsw zfrs)
 
-let h oc { name = Id.L x; args = _; fargs = _; body = e; ret = _ } =
+let h { name = Id.L x; args = _; fargs = _; body = e; ret = _ } =
   insns := Label x :: !insns;
   stackset := [];
   stackmap := [];
-  g oc (Tail, e)
+  g (Tail, e)
 
-let rec f oc (Prog (data, fundefs, e)) =
-  Format.eprintf "generating assembly...@.";
-  Printf.fprintf oc "\tjump min_caml_start\n";
-  let print_file filename =
-    let chan = open_in filename in
-    try
-      while true do
-        Printf.fprintf oc "%s\n" (input_line chan)
-      done
-    with End_of_file -> close_in chan
-  in
-  print_file "lib/print.s";
-  print_file "lib/read.s";
-  print_file "lib/float.s";
-  print_file "lib/array.s";
-  print_file "lib/tri.s";
-  List.iter
-    (fun (Id.L x, d) ->
-      Printf.fprintf oc "%s:\t# %f\n" x d;
-      Printf.fprintf oc "\tfli a0, %f\n" d)
-    data;
-  List.iter (fun fundef -> h oc fundef) fundefs;
+let rec f (Prog (data, fundefs, e)) =
+  List.iter (fun fundef -> h fundef) fundefs;
   insns := Label "min_caml_start" :: !insns;
   insns := Addi ("sp", "sp", -28) :: !insns;
   (* from gcc; why 112? -> changed to 28 (for no reason)*)
   stackset := [];
   stackmap := [];
-  g oc (NonTail "a0", e);
+  g (NonTail "a0", e);
   insns := Jalr ("zero", "ra", 0) :: !insns;
-  insns := optimize !insns;
-  print oc (List.rev !insns)
+  List.rev !insns
 
-and optimize insns =
+let rec optimize insns =
   let rec replace = function
     | [] -> []
     | cur :: rest -> (
@@ -473,7 +449,7 @@ and optimize insns =
   in
   iter 1000 insns
 
-and print oc insns =
+let rec print oc insns =
   match insns with
   | cur :: rest -> (
       match cur with
@@ -574,3 +550,21 @@ and print oc insns =
           Printf.fprintf oc "%s:\n" l;
           print oc rest)
   | [] -> ()
+
+let print_all oc insns =
+  Format.eprintf "generating assembly...@.";
+  Printf.fprintf oc "\tjump min_caml_start\n";
+  let print_file filename =
+    let chan = open_in filename in
+    try
+      while true do
+        Printf.fprintf oc "%s\n" (input_line chan)
+      done
+    with End_of_file -> close_in chan
+  in
+  print_file "lib/print.s";
+  print_file "lib/read.s";
+  print_file "lib/float.s";
+  print_file "lib/array.s";
+  print_file "lib/tri.s";
+  print oc insns
