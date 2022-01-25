@@ -267,7 +267,144 @@ let peephole (Prog (data, fundefs, e)) =
   Printf.fprintf stderr "[Peephole]\n";
   Prog (data, List.map peephole_h fundefs, peephole_g e)
 
-let constreg e = e
+let subst_ioi ioi x creg =
+  match ioi with C c -> C c | V y when x = y -> V creg | V y -> V y
+
+let subst_reg y x creg = if x = y then creg else y
+
+let is_alias com x =
+  match com with
+  | Mov y when y = x -> true
+  | FMovD y when y = x -> true
+  | _ -> false
+
+let rec subst_com com x creg =
+  match com with
+  | Mov y -> Mov (subst_reg y x creg)
+  | Add (y, ioi) -> Add (subst_reg y x creg, subst_ioi ioi x creg)
+  | Sub (y, ioi) -> Sub (subst_reg y x creg, subst_ioi ioi x creg)
+  | SLL (y, ioi) -> SLL (subst_reg y x creg, subst_ioi ioi x creg)
+  | SRL (y, ioi) -> SRL (subst_reg y x creg, subst_ioi ioi x creg)
+  | Ld (y, ioi) -> Ld (subst_reg y x creg, subst_ioi ioi x creg)
+  | St (y, z, ioi) ->
+      St (subst_reg y x creg, subst_reg z x creg, subst_ioi ioi x creg)
+  | FMovD y -> FMovD (subst_reg y x creg)
+  | FAddD (y, z) -> FAddD (subst_reg y x creg, subst_reg z x creg)
+  | FSubD (y, z) -> FSubD (subst_reg y x creg, subst_reg z x creg)
+  | FMulD (y, z) -> FMulD (subst_reg y x creg, subst_reg z x creg)
+  | FDivD (y, z) -> FDivD (subst_reg y x creg, subst_reg z x creg)
+  | LdDF (y, ioi) -> LdDF (subst_reg y x creg, subst_ioi ioi x creg)
+  | StDF (y, z, ioi) ->
+      StDF (subst_reg y x creg, subst_reg z x creg, subst_ioi ioi x creg)
+  | IfEq (y, ioi, e1, e2) ->
+      IfEq
+        ( subst_reg y x creg,
+          subst_ioi ioi x creg,
+          subst e1 x creg,
+          subst e2 x creg )
+  | IfLE (y, ioi, e1, e2) ->
+      IfLE
+        ( subst_reg y x creg,
+          subst_ioi ioi x creg,
+          subst e1 x creg,
+          subst e2 x creg )
+  | IfGE (y, ioi, e1, e2) ->
+      IfGE
+        ( subst_reg y x creg,
+          subst_ioi ioi x creg,
+          subst e1 x creg,
+          subst e2 x creg )
+  | IfFEq (y, z, e1, e2) ->
+      IfFEq
+        ( subst_reg y x creg,
+          subst_reg z x creg,
+          subst e1 x creg,
+          subst e2 x creg )
+  | IfFLE (y, z, e1, e2) ->
+      IfFLE
+        ( subst_reg y x creg,
+          subst_reg z x creg,
+          subst e1 x creg,
+          subst e2 x creg )
+  | CallCls (f, ys, zs) ->
+      CallCls
+        ( f,
+          List.map (fun y -> subst_reg y x creg) ys,
+          List.map (fun z -> subst_reg z x creg) zs )
+  | CallDir (f, ys, zs) ->
+      CallDir
+        ( f,
+          List.map (fun y -> subst_reg y x creg) ys,
+          List.map (fun z -> subst_reg z x creg) zs )
+  | Save (y, z) -> Save (subst_reg y x creg, z)
+  | exp -> exp
+
+and subst e x creg =
+  match e with
+  | Ans com -> Ans (subst_com com x creg)
+  | Let ((y, t), com, e2) ->
+      if is_alias com x then (
+        Printf.eprintf "[constreg] found alias";
+        subst (subst e2 y creg) x creg)
+      else Let ((y, t), subst_com com x creg, subst e2 x creg)
+
+let rec constreg_g e =
+  match e with
+  | Ans (Set 0) -> Ans (Mov "zero")
+  | Ans (SetF f) when f = 0.0 -> Ans (FMovD "fzero")
+  | Ans (IfEq (y, C 0, e1, e2)) ->
+      Ans (IfEq (y, V "zero", constreg_g e1, constreg_g e2))
+  | Ans (IfLE (y, C 0, e1, e2)) ->
+      Ans (IfLE (y, V "zero", constreg_g e1, constreg_g e2))
+  | Ans (IfGE (y, C 0, e1, e2)) ->
+      Ans (IfGE (y, V "zero", constreg_g e1, constreg_g e2))
+  | Ans (IfEq (y, ioi, e1, e2)) ->
+      Ans (IfEq (y, ioi, constreg_g e1, constreg_g e2))
+  | Ans (IfLE (y, ioi, e1, e2)) ->
+      Ans (IfLE (y, ioi, constreg_g e1, constreg_g e2))
+  | Ans (IfGE (y, ioi, e1, e2)) ->
+      Ans (IfGE (y, ioi, constreg_g e1, constreg_g e2))
+  | Ans (IfFEq (y, z, e1, e2)) ->
+      Ans (IfFEq (y, z, constreg_g e1, constreg_g e2))
+  | Ans (IfFLE (y, z, e1, e2)) ->
+      Ans (IfFLE (y, z, constreg_g e1, constreg_g e2))
+  | Ans _ -> e
+  | Let ((x, t), Set 0, e2) ->
+      Printf.eprintf "substitute %s for zero\n" x;
+      opt_count := !opt_count + 1;
+      constreg_g (subst e2 x "zero")
+  | Let ((x, t), SetF f, e2) when f = 0.0 ->
+      Printf.eprintf "substitute %s for fzero\n" x;
+      opt_count := !opt_count + 1;
+      constreg_g (subst e2 x "fzero")
+  | Let ((x, t), IfEq (y, C 0, e1, e2), e3) ->
+      Let
+        ((x, t), IfEq (y, V "zero", constreg_g e1, constreg_g e2), constreg_g e3)
+  | Let ((x, t), IfEq (y, ioi, e1, e2), e3) ->
+      Let ((x, t), IfEq (y, ioi, constreg_g e1, constreg_g e2), constreg_g e3)
+  | Let ((x, t), IfLE (y, C 0, e1, e2), e3) ->
+      Let
+        ((x, t), IfLE (y, V "zero", constreg_g e1, constreg_g e2), constreg_g e3)
+  | Let ((x, t), IfLE (y, ioi, e1, e2), e3) ->
+      Let ((x, t), IfLE (y, ioi, constreg_g e1, constreg_g e2), constreg_g e3)
+  | Let ((x, t), IfGE (y, C 0, e1, e2), e3) ->
+      Let
+        ((x, t), IfGE (y, V "zero", constreg_g e1, constreg_g e2), constreg_g e3)
+  | Let ((x, t), IfGE (y, ioi, e1, e2), e3) ->
+      Let ((x, t), IfGE (y, ioi, constreg_g e1, constreg_g e2), constreg_g e3)
+  | Let ((x, t), IfFEq (y, z, e1, e2), e3) ->
+      Let ((x, t), IfFEq (y, z, constreg_g e1, constreg_g e2), constreg_g e3)
+  | Let ((x, t), IfFLE (y, z, e1, e2), e3) ->
+      Let ((x, t), IfFLE (y, z, constreg_g e1, constreg_g e2), constreg_g e3)
+  | Let (xt, exp, e2) -> Let (xt, exp, constreg_g e2)
+
+let constreg_h { name = Id.L x; args = ys; fargs = zs; body = e; ret = t } =
+  let e' = constreg_g e in
+  { name = Id.L x; args = ys; fargs = zs; body = e'; ret = t }
+
+let constreg (Prog (data, fundefs, e)) =
+  Printf.fprintf stderr "[constant register]\n";
+  Prog (data, List.map constreg_h fundefs, constreg_g e)
 
 let rec f e n =
   if n = 0 then e
@@ -275,7 +412,8 @@ let rec f e n =
     let e' = constfold e in
     let e' = elim e' in
     let e' = peephole e' in
-    let e' = constreg e' in
+    (* let e' = constreg e' in *)
     Printf.eprintf "eliminated asm counter %d\n" !elim_count;
     Printf.eprintf "peephole optimization counter %d\n" !opt_count;
+    Printf.eprintf "const reg counter %d\n" !opt_count;
     if e = e' then e else f e' (n - 1)
