@@ -82,6 +82,8 @@ let compile in_channel out_channel =
     Printf.fprintf oc "[Register Allocated]\n";
     Printf.fprintf oc "%s\n" (Virtual.print allocated));
 
+  let allocated = Sched.f2 allocated !iter in
+
   (* Asm.prog -> Emit.exp list *)
   let assembly = Emit.f allocated in
 

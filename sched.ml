@@ -279,3 +279,12 @@ let rec f e n =
     Printf.eprintf "eliminated asm counter %d\n" !elim_count;
     Printf.eprintf "peephole optimization counter %d\n" !opt_count;
     if e = e' then e else f e' (n - 1)
+
+let rec f2 e n =
+  if n = 0 then e
+  else
+    let e' = elim e in
+    let e' = peephole e' in
+    Printf.eprintf "eliminated asm counter %d\n" !elim_count;
+    Printf.eprintf "peephole optimization counter %d\n" !opt_count;
+    if e = e' then e else f2 e' (n - 1)
