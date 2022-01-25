@@ -1,26 +1,55 @@
 open Ds
-open Virtual
+open Asm
 
-(* type t = (Id.t * Type.t) * Asm.exp *)
+type t = (Id.t * Type.t) * Asm.exp
 
-(* Asm.Ans -> Asm.Let("ret", ...) *)
+type gid = string
 
-(* let reach (p : list t) = p *)
+type iid = string
 
-(* let block e = e *)
-(* let blocks = list of blocks *)
+type insn = {
+  mutable id : Id.t;
+  mutable block : Id.t;
+  mutable insn : t;
+  mutable liveIn : list;
+  mutable liveOut : list;
+  mutable nextId : Id.t;
+  mutable predId : Id.t;
+}
 
-(* let sched
-    { Asm.name = l; Asm.args = xs; Asm.fargs = ys; Asm.body = e; Asm.ret = t } =
-  {
-    Asm.name = l;
-    Asm.args = xs;
-    Asm.fargs = ys;
-    Asm.body = block e;
-    Asm.ret = t;
-  }
+type block = {
+  mutable id : Id.t;
+  mutable func : Id.l;
+  mutable insns : insn list;
+  mutable head : Id.t;
+  mutable tail : Id.t;
+  mutable predIds : Id.t list;
+  mutable nextIds : Id.t list;
+  mutable liveIn : list;
+  mutable liveOut : list;
+  mutable useInside : list;
+  mutable defInside : list;
+}
+
+let dfa (insns: Asm.t) = 
+
+let f' fundef =
+  let name = fundef.name in
+  let args = fundef.args in
+  let fargs = fundef.fargs in
+  let body = fundef.body in
+  let body' = dfa body in 
+  let ret = fundef.ret in
+  { name : name; args : args; fargs : fargs; body : body'; ret : ret }
 
 let f (Asm.Prog (data, fundefs, e)) =
-  Asm.Prog (data, List.map sched fundefs, sched e) *)
+  Asm.Prog (data, List.map f' fundefs, dfa e)
 
-let f x = x
+let rec opt e n  =
+  if n = 0 then e
+  else
+    let e' = constfold e in
+    let e' = elim e' in
+    let e' = peephole e' in
+    let e' = constreg e' in
+    if e = e' then e else f e' (n - 1) th
