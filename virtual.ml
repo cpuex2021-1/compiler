@@ -137,34 +137,18 @@ let rec g env = function
       in
       load
   | Closure.Get (x, y) -> (
-      let offset = Id.genid "o" in
+      (* let offset = Id.genid "o" in *)
       match env_find x env with
       | Type.Array Type.Unit -> Asm.Ans Asm.Nop
-      | Type.Array Type.Float ->
-          Asm.Let
-            ( (offset, Type.Int),
-              Asm.SLL (y, Asm.C 2),
-              Asm.Ans (Asm.LdDF (x, Asm.V offset)) )
-      | Type.Array _ ->
-          Asm.Let
-            ( (offset, Type.Int),
-              Asm.SLL (y, Asm.C 2),
-              Asm.Ans (Asm.Ld (x, Asm.V offset)) )
+      | Type.Array Type.Float -> Asm.Ans (Asm.LdDF (x, Asm.V y))
+      | Type.Array _ -> Asm.Ans (Asm.Ld (x, Asm.V y))
       | _ -> assert false)
   | Closure.Put (x, y, z) -> (
-      let offset = Id.genid "o" in
+      (* let offset = Id.genid "o" in *)
       match env_find x env with
       | Type.Array Type.Unit -> Asm.Ans Asm.Nop
-      | Type.Array Type.Float ->
-          Asm.Let
-            ( (offset, Type.Int),
-              Asm.SLL (y, Asm.C 2),
-              Asm.Ans (Asm.StDF (z, x, Asm.V offset)) )
-      | Type.Array _ ->
-          Asm.Let
-            ( (offset, Type.Int),
-              Asm.SLL (y, Asm.C 2),
-              Asm.Ans (Asm.St (z, x, Asm.V offset)) )
+      | Type.Array Type.Float -> Asm.Ans (Asm.StDF (z, x, Asm.V y))
+      | Type.Array _ -> Asm.Ans (Asm.St (z, x, Asm.V y))
       | _ -> assert false)
   | Closure.ExtArray (Id.L x) -> Asm.Ans (Asm.SetL (Id.L ("min_caml_" ^ x)))
   | Closure.ExtTuple (Id.L x) -> Asm.Ans (Asm.SetL (Id.L ("min_caml_" ^ x)))
