@@ -7,6 +7,8 @@ let findf x env = match env_find x env with SetF f -> f | _ -> raise Not_found
 
 let elim_count = ref 0
 
+let opt_count = ref 0
+
 let rec constfold_g' e env =
   (* for Asm.exp *)
   match e with
@@ -170,7 +172,100 @@ let elim (Prog (data, fundefs, e)) =
   Printf.fprintf stderr "[Eliminate asm]\n";
   Prog (data, List.map elim_h fundefs, elim_g' e)
 
-let peephole e = e
+(* for Asm.exp *)
+let rec peephole_h com =
+  match com with
+  | IfEq (y, C 0, e1, e2) -> IfEq (y, V "zero", peephole_g e1, peephole_g e2)
+  | IfLE (y, C 0, e1, e2) -> IfLE (y, V "zero", peephole_g e1, peephole_g e2)
+  | IfGE (y, C 0, e1, e2) -> IfGE (y, V "zero", peephole_g e1, peephole_g e2)
+  | IfEq (y, ioi, e1, e2) ->
+      let e1' = peephole_g e1 in
+      let e2' = peephole_g e2 in
+      IfEq (y, ioi, e1', e2')
+  | IfLE (y, ioi, e1, e2) ->
+      let e1' = peephole_g e1 in
+      let e2' = peephole_g e2 in
+      IfLE (y, ioi, e1', e2')
+  | IfGE (y, ioi, e1, e2) ->
+      let e1' = peephole_g e1 in
+      let e2' = peephole_g e2 in
+      IfGE (y, ioi, e1', e2')
+  | IfFEq (y, ioi, e1, e2) ->
+      let e1' = peephole_g e1 in
+      let e2' = peephole_g e2 in
+      IfFEq (y, ioi, e1', e2')
+  | IfFLE (y, ioi, e1, e2) ->
+      let e1' = peephole_g e1 in
+      let e2' = peephole_g e2 in
+      IfFLE (y, ioi, e1', e2')
+  | Ld (y, V z) when z = "zero" ->
+      opt_count := !opt_count + 1;
+      Ld (y, C 0)
+  | Ld (y, V z) when y = "zero" ->
+      opt_count := !opt_count + 1;
+      Ld (z, C 0)
+  | St (x, y, V z) when z = "zero" ->
+      opt_count := !opt_count + 1;
+      St (x, y, C 0)
+  | St (x, y, V z) when y = "zero" ->
+      opt_count := !opt_count + 1;
+      St (x, z, C 0)
+  | StDF (x, y, V z) when z = "zero" ->
+      opt_count := !opt_count + 1;
+      StDF (x, y, C 0)
+  | StDF (x, y, V z) when y = "zero" ->
+      opt_count := !opt_count + 1;
+      StDF (x, z, C 0)
+  | LdDF (y, V z) when z = "zero" ->
+      opt_count := !opt_count + 1;
+      LdDF (y, C 0)
+  | LdDF (y, V z) when y = "zero" ->
+      opt_count := !opt_count + 1;
+      LdDF (z, C 0)
+  | _ -> com
+
+(* for Asm.t *)
+and peephole_g exp =
+  match exp with
+  | Let ((y1, t1), Ld (x1, i1), Let ((y2, t2), Ld (x2, C i2), e1))
+    when y1 = y2 && y1 <> x2 ->
+      Printf.eprintf "redundant load %s found.\n" y1;
+      peephole_g (Let ((y2, t2), Ld (x2, C i2), e1))
+  | Let ((y1, t1), Ld (x1, i1), Let ((y2, t2), Ld (x2, V i2), e1))
+    when y1 = y2 && y1 <> x2 && y1 <> i2 ->
+      Printf.eprintf "redundant load %s found.\n" y1;
+      peephole_g (Let ((y2, t2), Ld (x2, V i2), e1))
+  | Let ((x1, t1), Add (z, C i1), Let ((x2, t2), Add (y1, C i2), e1))
+    when x1 = y1 && y1 = x2 ->
+      opt_count := !opt_count + 1;
+      peephole_g (Let ((x2, t2), Add (z, C (i1 + i2)), e1))
+  | Let ((x1, t1), Set i1, Let ((x2, t2), Add (y1, C i2), e1))
+    when x1 = y1 && y1 = x2 ->
+      opt_count := !opt_count + 1;
+      peephole_g (Let ((x2, t2), Set (i1 + i2), e1))
+  | Let ((x, tx), Add (y, C c1), Let ((z, tz), Ld (x2, C c2), exp))
+    when x = x2 && z <> x && z <> y && abs (c1 + c2) < 32768 ->
+      opt_count := !opt_count + 1;
+      peephole_g
+        (Let ((z, tz), Ld (y, C (c1 + c2)), Let ((x, tx), Add (y, C c1), exp)))
+  (* | Let ((x, tx), Add (y, C c1), Let ((z, tz), Ld (x2, C c2), exp))
+     when x = x2 && z = x && z <> y && abs (c1 + c2) < 32768 ->
+       opt_count := !opt_count + 1;
+       peephole_g
+         (Let ((z, tz), Ld (y, C (c1 + c2)), Let ((x, tx), Add (y, C c1), exp))) *)
+  | Let ((x, t), com, e2) ->
+      let e2' = peephole_g e2 in
+      let com' = peephole_h com in
+      Let ((x, t), com', e2')
+  | Ans com -> Ans (peephole_h com)
+
+let peephole_h { name = Id.L x; args = ys; fargs = zs; body = e; ret = t } =
+  let e' = peephole_g e in
+  { name = Id.L x; args = ys; fargs = zs; body = e'; ret = t }
+
+let peephole (Prog (data, fundefs, e)) =
+  Printf.fprintf stderr "[Peephole]\n";
+  Prog (data, List.map peephole_h fundefs, peephole_g e)
 
 let constreg e = e
 
@@ -181,4 +276,6 @@ let rec f e n =
     let e' = elim e' in
     let e' = peephole e' in
     let e' = constreg e' in
+    Printf.eprintf "eliminated asm counter %d\n" !elim_count;
+    Printf.eprintf "peephole optimization counter %d\n" !opt_count;
     if e = e' then e else f e' (n - 1)
