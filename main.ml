@@ -62,21 +62,21 @@ let compile in_channel out_channel =
     Printf.fprintf oc "%s\n" (Virtual.print virtual_asm));
 
   (* Asm.prog -> Asm.prog *)
-  let scheduled = Sched.f virtual_asm in
-  if !verbose then (
-    let oc = open_out "output/06.1-scheduled.txt" in
-    Printf.fprintf oc "[Scheduled]\n";
-    Printf.fprintf oc "%s\n" (Virtual.print scheduled));
-
-  (* Asm.prog -> Asm.prog *)
-  let simm_asm = Virtual.simm scheduled in
+  let simm_asm = Virtual.simm virtual_asm in
   if !verbose then (
     let oc = open_out "output/06.5-simm-asm.txt" in
     Printf.fprintf oc "[Simm Asm]\n";
     Printf.fprintf oc "%s\n" (Virtual.print simm_asm));
 
   (* Asm.prog -> Asm.prog *)
-  let allocated = RegAlloc.f simm_asm in
+  let scheduled = Sched.f simm_asm !iter in
+  if !verbose then (
+    let oc = open_out "output/06.9-opt.txt" in
+    Printf.fprintf oc "[Scheduled]\n";
+    Printf.fprintf oc "%s\n" (Virtual.print scheduled));
+
+  (* Asm.prog -> Asm.prog *)
+  let allocated = RegAlloc.f scheduled in
   if !verbose then (
     let oc = open_out "output/07-register-allocated.txt" in
     Printf.fprintf oc "[Register Allocated]\n";
