@@ -5,6 +5,8 @@ let findi x env = match env_find x env with Set i -> i | _ -> raise Not_found
 
 let findf x env = match env_find x env with SetF f -> f | _ -> raise Not_found
 
+let elim_count = ref 0
+
 let rec constfold_g' e env =
   (* for Asm.exp *)
   match e with
@@ -123,7 +125,50 @@ let constfold (Prog (data, fundefs, e)) =
   Printf.fprintf stderr "[Const fold asm]\n";
   Prog (data, List.map constfold_h fundefs, constfold_g e [])
 
-let elim e = e
+let rec effect_h com =
+  match com with
+  | St _ | StDF _ | CallCls _ | CallDir _ | Save _ | Restore _ -> true
+  | IfEq (_, _, e1, e2) -> effect_g e1 || effect_g e2
+  | IfLE (_, _, e1, e2) -> effect_g e1 || effect_g e2
+  | IfGE (_, _, e1, e2) -> effect_g e1 || effect_g e2
+  | IfFEq (_, _, e1, e2) -> effect_g e1 || effect_g e2
+  | IfFLE (_, _, e1, e2) -> effect_g e1 || effect_g e2
+  | _ -> false
+
+and effect_g exp =
+  match exp with
+  | Ans com -> effect_h com
+  | Let ((x, t), com, e) ->
+      (effect_h com || effect_g e) || set_exist x (fv_exp com)
+
+let rec elim_h' exp =
+  match exp with
+  | IfEq (x, y, e1, e2) -> IfEq (x, y, elim_g' e1, elim_g' e2)
+  | IfLE (x, y, e1, e2) -> IfLE (x, y, elim_g' e1, elim_g' e2)
+  | IfGE (x, y, e1, e2) -> IfGE (x, y, elim_g' e1, elim_g' e2)
+  | IfFEq (x, y, e1, e2) -> IfFEq (x, y, elim_g' e1, elim_g' e2)
+  | IfFLE (x, y, e1, e2) -> IfFLE (x, y, elim_g' e1, elim_g' e2)
+  | x -> x
+
+and elim_g' exp =
+  match exp with
+  | Ans com -> Ans (elim_h' com)
+  | Let ((x, t), com, e) ->
+      let e' = elim_g' e in
+      let com' = elim_h' com in
+      if (effect_h com' || set_exist x (fv e')) || is_reg x then
+        Let ((x, t), com', e')
+      else (
+        elim_count := !elim_count + 1;
+        e')
+
+let elim_h { name = Id.L x; args = ys; fargs = zs; body = e; ret = t } =
+  let e' = elim_g' e in
+  { name = Id.L x; args = ys; fargs = zs; body = e'; ret = t }
+
+let elim (Prog (data, fundefs, e)) =
+  Printf.fprintf stderr "[Eliminate asm]\n";
+  Prog (data, List.map elim_h fundefs, elim_g' e)
 
 let peephole e = e
 
