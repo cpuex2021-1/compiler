@@ -33,11 +33,17 @@ let rec constfold_g' e env =
   | SRL (x, V y) when env_exists x env && env_exists y env ->
       Set (findi x env lsr findi y env)
   | Ld (x, V y) when env_exists x env && env_exists y env ->
-      Ld ("zero", C (findi x env + findi y env))
-  | Ld (x, C y) when env_exists x env -> Ld ("zero", C (findi x env + y))
+      let offset = findi x env + findi y env in
+      if offset < 8192 then Ld ("zero", C offset) else Ld (x, V y)
+  | Ld (x, C y) when env_exists x env ->
+      let offset = findi x env + y in
+      if offset < 8192 then Ld ("zero", C offset) else Ld (x, C y)
   | St (x, y, V z) when env_exists y env && env_exists z env ->
-      St (x, "zero", C (findi y env + findi z env))
-  | St (x, y, C z) when env_exists y env -> St (x, "zero", C (findi y env + z))
+      let offset = findi y env + findi z env in
+      if offset < 8192 then St (x, "zero", C offset) else St (x, y, V z)
+  | St (x, y, C z) when env_exists y env ->
+      let offset = findi y env + z in
+      if offset < 8192 then St (x, "zero", C offset) else St (x, y, C z)
   | FMovD x when env_exists x env -> (
       match env_find x env with
       (* | Set i -> Set i *)
@@ -56,12 +62,17 @@ let rec constfold_g' e env =
       let f = findf x env /. findf y env in
       SetF f
   | LdDF (x, V y) when env_exists x env && env_exists y env ->
-      LdDF ("zero", C (findi x env + findi y env))
-  | LdDF (x, C y) when env_exists x env -> LdDF ("zero", C (findi x env + y))
+      let offset = findi x env + findi y env in
+      if offset < 8192 then LdDF ("zero", C offset) else LdDF (x, V y)
+  | LdDF (x, C y) when env_exists x env ->
+      let offset = findi x env + y in
+      if offset < 8192 then LdDF ("zero", C offset) else LdDF (x, C y)
   | StDF (x, y, V z) when env_exists y env && env_exists z env ->
-      StDF (x, "zero", C (findi y env + findi z env))
+      let offset = findi y env + findi z env in
+      if offset < 8192 then StDF (x, "zero", C offset) else StDF (x, y, V z)
   | StDF (x, y, C z) when env_exists y env ->
-      StDF (x, "zero", C (findi y env + z))
+      let offset = findi y env + z in
+      if offset < 8192 then StDF (x, "zero", C offset) else StDF (x, y, C z)
   | IfEq (x, V y, e1, e2) when env_exists x env && env_exists y env ->
       let xi = findi x env in
       let yi = findi y env in
