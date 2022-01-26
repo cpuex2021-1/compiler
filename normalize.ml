@@ -1,5 +1,11 @@
 open Ds
 
+let hp_init = ref 16777216
+
+let global_arrays = ref []
+
+exception ArrayTypeError
+
 type t =
   | Unit
   | Int of int
@@ -26,6 +32,7 @@ type t =
   | Put of Id.t * Id.t * Id.t
   | ExtArray of Id.t
   | ExtTuple of Id.t
+  | GlobalTuple of int * Id.t list
   | ExtFunApp of Id.t * Id.t list
 
 and fundef = { name : Id.t * Type.t; args : (Id.t * Type.t) list; body : t }
@@ -51,7 +58,7 @@ let rec fv = function
       let zs = set_diff (fv e1) (List.map fst yts) in
       set_diff (set_union zs (fv e2)) [ x ]
   | App (x, ys) -> x :: ys
-  | Tuple xs | ExtFunApp (_, xs) -> xs
+  | Tuple xs | GlobalTuple (_, xs) | ExtFunApp (_, xs) -> xs
   | Put (x, y, z) -> [ x; y; z ]
   | LetTuple (xs, y, e) -> set_add y (set_diff (fv e) (List.map fst xs))
 
@@ -62,6 +69,11 @@ let insert_let (exp, typ) func =
       let x = Id.gentmp typ in
       let exp', typ' = func x in
       (Let ((x, typ), exp, exp'), typ')
+
+let calc_size sz t =
+  match t with Type.Unit -> sz | Type.Float -> sz + 1 | _ -> sz + 1
+
+let tuple_size ts = List.fold_left calc_size 0 ts
 
 let rec kNorm_ env exp =
   match exp with
@@ -168,6 +180,19 @@ let rec kNorm_ env exp =
             insert_let (ex, tx) (fun x -> bind (xs @ [ x ]) (ts @ [ tx ]) es)
       in
       bind [] [] es
+  | Syntax.GlobalTuple es ->
+      let rec bind xs ts es =
+        match es with
+        | [] ->
+            let sz = tuple_size ts in
+            let addr = !hp_init in
+            hp_init := !hp_init + sz;
+            (GlobalTuple (addr, xs), Type.Tuple ts)
+        | e :: es ->
+            let ex, tx = kNorm_ env e in
+            insert_let (ex, tx) (fun x -> bind (xs @ [ x ]) (ts @ [ tx ]) es)
+      in
+      bind [] [] es
   | Syntax.LetTuple (xts, e1, e2) ->
       insert_let (kNorm_ env e1) (fun y ->
           let e2', t2 = kNorm_ (add_list xts env) e2 in
@@ -182,6 +207,25 @@ let rec kNorm_ env exp =
                 | _ -> "create_array"
               in
               (ExtFunApp (l, [ x; y ]), Type.Array t2)))
+  | Syntax.GlobalArray (e1, e2) ->
+      insert_let (kNorm_ env e1) (fun x ->
+          let ((_, t2) as g_e2) = kNorm_ env e2 in
+          insert_let g_e2 (fun y ->
+              let l =
+                match t2 with
+                | Type.Float -> "create_global_float_array"
+                | _ -> "create_global_array"
+              in
+              let sz = 1 in
+              let len =
+                match e1 with Syntax.Int x -> x | _ -> raise ArrayTypeError
+              in
+              let addr = !hp_init in
+              hp_init := !hp_init + (sz * len);
+              let addvar = Id.gentmp Type.Int in
+              ( Let
+                  ((addvar, Type.Int), Int addr, ExtFunApp (l, [ addvar; x; y ])),
+                Type.Array t2 )))
   | Syntax.Get (e1, e2) -> (
       match kNorm_ env e1 with
       | (_, Type.Array t) as g_e1 ->
@@ -193,7 +237,44 @@ let rec kNorm_ env exp =
           insert_let (kNorm_ env e2) (fun y ->
               insert_let (kNorm_ env e3) (fun z -> (Put (x, y, z), Type.Unit))))
 
-let kNorm exp = fst (kNorm_ [] exp)
+let rec fixed_length_array exp =
+  match exp with
+  | Syntax.Array (Syntax.Int x, e2) -> x
+  | Syntax.Let ((x, t), e1, e2) -> fixed_length_array e2
+  | _ -> -1
+
+let rec is_global_tuple exp =
+  match exp with
+  | Syntax.Tuple xs -> 1
+  | Syntax.Let ((x, t), e1, e2) -> is_global_tuple e2
+  | _ -> -1
+
+let rec subst_global_array exp =
+  match exp with
+  | Syntax.Array (Int x, e2) -> Syntax.GlobalArray (Int x, e2)
+  | Syntax.Let ((x, t), e1, e2) -> Syntax.Let ((x, t), e1, subst_global_array e2)
+  | _ -> Syntax.Unit
+
+let rec subst_global_tuple exp =
+  match exp with
+  | Syntax.Tuple xs -> Syntax.GlobalTuple xs
+  | Syntax.Let ((x, t), e1, e2) -> Syntax.Let ((x, t), e1, subst_global_tuple e2)
+  | _ -> Syntax.Unit
+
+let rec global_f exp =
+  match exp with
+  | Syntax.Let ((x, t), e1, e2) ->
+      let len = fixed_length_array e1 in
+      if len < 0 then
+        let tp = is_global_tuple e1 in
+        if tp = 1 then Syntax.Let ((x, t), subst_global_tuple e1, global_f e2)
+        else Syntax.Let ((x, t), e1, global_f e2)
+      else Syntax.Let ((x, t), subst_global_array e1, global_f e2)
+  | e -> e
+
+let kNorm exp =
+  let exp = global_f exp in
+  fst (kNorm_ [] exp)
 
 let rec alpha_ env exp =
   match exp with
@@ -241,11 +322,53 @@ let rec alpha_ env exp =
   | Get (x, y) -> Get (env_find2 x env, env_find2 y env)
   | Put (x, y, z) -> Put (env_find2 x env, env_find2 y env, env_find2 z env)
   | ExtArray x -> ExtArray x
+  | GlobalTuple (addr, xs) ->
+      GlobalTuple (addr, List.map (fun x -> env_find2 x env) xs)
   | ExtTuple x -> ExtTuple x
   | ExtFunApp (x, ys) ->
       ExtFunApp (env_find2 x env, List.map (fun y -> env_find2 y env) ys)
 
 let alpha exp = alpha_ [] exp
+
+let rec is_global_array = function
+  | Let ((_, Type.Int), Int addr, ExtFunApp ("create_global_float_array", _)) ->
+      (addr, Type.Float)
+  | Let ((_, Type.Int), Int addr, ExtFunApp ("create_global_array", _)) ->
+      (addr, Type.Int)
+  | Let ((x, t), e1, e2) -> is_global_array e2
+  | e -> (-1, Type.Unit)
+
+let rec is_global_tuple2 = function
+  | GlobalTuple (addr, xs) -> (addr, Type.Tuple [])
+  | Let ((x, t), e1, e2) -> is_global_tuple2 e2
+  | e -> (-1, Type.Unit)
+
+let rec set_global_arrays = function
+  | Let ((x, t), e1, e2) ->
+      let addr, ty = is_global_array e1 in
+      if addr >= 0 then (
+        print_string ("array " ^ x ^ " is mapped on address ");
+        print_int addr;
+        print_string "\n";
+        global_arrays := (x, (addr, ty)) :: !global_arrays);
+      set_global_arrays e2
+  | _ -> ()
+
+let rec set_global_tuples = function
+  | Let ((x, t), e1, e2) ->
+      let addr, ty = is_global_tuple2 e1 in
+      if addr >= 0 then (
+        print_string ("tuple " ^ x ^ " is mapped on address ");
+        print_int addr;
+        print_string "\n";
+        global_arrays := (x, (addr, ty)) :: !global_arrays);
+      set_global_tuples e2
+  | _ -> ()
+
+let global_vars e =
+  set_global_arrays e;
+  set_global_tuples e;
+  e
 
 let rec print_env env =
   match env with
@@ -304,6 +427,9 @@ let rec print_t t indent =
   | Put (t1, t2, t3) -> "Put " ^ t1 ^ " " ^ t2 ^ " " ^ t3
   | ExtArray t -> "ExtArray " ^ t
   | ExtTuple t -> "ExtTuple " ^ t
+  | GlobalTuple (addr, tl) ->
+      "GlobalTuple @" ^ string_of_int addr
+      ^ List.fold_left (fun s t -> s ^ " " ^ t) "" tl
   | ExtFunApp (t, tl) ->
       "ExtFunApp " ^ t ^ List.fold_left (fun s t -> s ^ " " ^ t) "" tl
 

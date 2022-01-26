@@ -177,10 +177,12 @@ and g' = function
       ()
   (* 復帰の仮想命令の実装 *)
   | NonTail x, Restore y when List.mem x allregs ->
-      insns := Lw (x, offset y, reg_sp) :: !insns
+      if y = "zero" then insns := Lw (x, 0, reg_sp) :: !insns
+      else insns := Lw (x, offset y, reg_sp) :: !insns
   | NonTail x, Restore y ->
       assert (List.mem x allfregs);
-      insns := Flw (x, offset y, reg_sp) :: !insns
+      if y = "zero" then insns := Flw (x, 0, reg_sp) :: !insns
+      else insns := Flw (x, offset y, reg_sp) :: !insns
   (* 末尾だったら計算結果を第一レジスタにセットしてret *)
   | Tail, ((Nop | St _ | StDF _ | Comment _ | Save _) as exp) ->
       g' (NonTail (Id.gentmp Type.Unit), exp);
@@ -553,6 +555,7 @@ let rec print oc insns =
 
 let print_all oc insns =
   Format.eprintf "generating assembly...@.";
+  Printf.fprintf oc "\tli hp, %d\n" !Normalize.hp_init;
   Printf.fprintf oc "\tjump min_caml_start\n";
   let print_file filename =
     let chan = open_in filename in

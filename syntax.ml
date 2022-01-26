@@ -26,6 +26,8 @@ type t =
   | Array of t * t
   | Get of t * t
   | Put of t * t * t
+  | GlobalTuple of t list
+  | GlobalArray of t * t
 
 and fundef = { name : Id.t * Type.t; args : (Id.t * Type.t) list; body : t }
 
@@ -112,5 +114,10 @@ let rec print_t t indent =
   | Put (t1, t2, t3) ->
       "Put\n" ^ print_t t1 indent_next ^ "\n" ^ print_t t2 indent_next ^ "\n"
       ^ print_t t3 indent_next
+  | GlobalTuple tl ->
+      "GlobalTuple\n"
+      ^ List.fold_left (fun s t -> s ^ print_t t indent_next ^ "\n") "" tl
+  | GlobalArray (t1, t2) ->
+      "GlobalArray\n" ^ print_t t1 indent_next ^ "\n" ^ print_t t2 indent_next
 
 let print t = print_t t 0

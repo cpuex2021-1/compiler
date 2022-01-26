@@ -25,6 +25,16 @@ let expand xts ini addf addi =
 
 let rec log2 n = if n = 1 then 0 else 1 + log2 (n / 2)
 
+let rec rename_global l =
+  match l with
+  | [] -> []
+  | y :: rest ->
+      if List.mem_assoc y !Normalize.global_arrays then
+        let addr, _ = List.assoc y !Normalize.global_arrays in
+        let yt = Id.genid "g" in
+        (yt, addr) :: rename_global rest
+      else (y, -1) :: rename_global rest
+
 let rec g env = function
   | Closure.Unit -> Asm.Ans Asm.Nop
   | Closure.Int i -> Asm.Ans (Asm.Set i)
@@ -73,11 +83,15 @@ let rec g env = function
       let e1' = g env e1 in
       let e2' = g (env_add x t1 env) e2 in
       Asm.concat e1' (x, t1) e2'
-  | Closure.Var x -> (
-      match env_find x env with
-      | Type.Unit -> Asm.Ans Asm.Nop
-      | Type.Float -> Asm.Ans (Asm.FMovD x)
-      | _ -> Asm.Ans (Asm.Mov x))
+  | Closure.Var x ->
+      if env_exists x env then
+        match env_find x env with
+        | Type.Unit -> Asm.Ans Asm.Nop
+        | Type.Float -> Asm.Ans (Asm.FMovD x)
+        | _ -> Asm.Ans (Asm.Mov x)
+      else
+        let addr, ty = List.assoc x !Normalize.global_arrays in
+        Asm.Ans (Asm.Set addr)
   | Closure.MakeCls ((x, t), { Closure.entry = l; Closure.actual_fv = ys }, e2)
     ->
       let e2' = g (env_add x t env) e2 in
@@ -123,33 +137,134 @@ let rec g env = function
             ( (Asm.reg_hp, Type.Int),
               Asm.Add (Asm.reg_hp, Asm.C (Asm.align offset)),
               store ) )
+  | Closure.GlobalTuple (addr, xs) ->
+      let y = Id.genid "t" in
+      let offset, store =
+        expand
+          (List.map (fun x -> (x, env_find x env)) xs)
+          (0, Asm.Ans (Asm.Mov y))
+          (fun x offset store -> Asm.seq (Asm.StDF (x, y, Asm.C offset), store))
+          (fun x _ offset store -> Asm.seq (Asm.St (x, y, Asm.C offset), store))
+      in
+      Asm.Let
+        ( (y, Type.Tuple (List.map (fun x -> env_find x env) xs)),
+          Asm.Set addr,
+          store )
   | Closure.LetTuple (xts, y, e2) ->
       let s = Closure.fv e2 in
-      let offset, load =
-        expand xts
-          (0, g (add_list xts env) e2)
-          (fun x offset load ->
-            if not (set_exist x s) then load
-            else Asm.fletd (x, Asm.LdDF (y, Asm.C offset), load))
-          (fun x t offset load ->
-            if not (set_exist x s) then load
-            else Asm.Let ((x, t), Asm.Ld (y, Asm.C offset), load))
+      let env' =
+        match env_exists y env with
+        | false -> env_add y Type.Int (add_list xts env)
+        | true -> add_list xts env
       in
-      load
+      if List.mem_assoc y !Normalize.global_arrays then
+        let y' = Id.genid "lt" in
+        let addr, ty = List.assoc y !Normalize.global_arrays in
+        let offset, load =
+          expand xts
+            (0, g env' e2)
+            (fun x offset load ->
+              if not (set_exist x s) then load
+              else Asm.fletd (x, LdDF (y', Asm.C offset), load))
+            (fun x t offset load ->
+              if not (set_exist x s) then load
+              else Asm.Let ((x, t), Ld (y', Asm.C offset), load))
+        in
+        Asm.Let ((y', Type.Int), Asm.Set addr, load)
+      else
+        let offset, load =
+          expand xts
+            (0, g env' e2)
+            (fun x offset load ->
+              if not (set_exist x s) then load
+              else Asm.fletd (x, Asm.LdDF (y, Asm.C offset), load))
+            (fun x t offset load ->
+              if not (set_exist x s) then load
+              else Asm.Let ((x, t), Asm.Ld (y, Asm.C offset), load))
+        in
+        load
   | Closure.Get (x, y) -> (
-      (* let offset = Id.genid "o" in *)
-      match env_find x env with
-      | Type.Array Type.Unit -> Asm.Ans Asm.Nop
-      | Type.Array Type.Float -> Asm.Ans (Asm.LdDF (x, Asm.V y))
-      | Type.Array _ -> Asm.Ans (Asm.Ld (x, Asm.V y))
-      | _ -> assert false)
+      if
+        (* let offset = Id.genid "o" in *)
+        List.mem_assoc x !Normalize.global_arrays
+      then
+        let addr, ty = List.assoc x !Normalize.global_arrays in
+        let offset = Id.genid "o" in
+        match ty with
+        | Type.Float ->
+            Asm.Let
+              ( (offset, Type.Int),
+                Asm.Set addr,
+                Asm.Ans (Asm.LdDF (y, Asm.V offset)) )
+        | Type.Int ->
+            Asm.Let
+              ( (offset, Type.Int),
+                Asm.Set addr,
+                Asm.Ans (Asm.Ld (y, Asm.V offset)) )
+        | _ -> assert false
+      else
+        match env_find x env with
+        | Type.Array Type.Unit -> Asm.Ans Asm.Nop
+        | Type.Array Type.Float -> Asm.Ans (Asm.LdDF (x, Asm.V y))
+        | Type.Array _ -> Asm.Ans (Asm.Ld (x, Asm.V y))
+        | _ -> assert false)
   | Closure.Put (x, y, z) -> (
-      (* let offset = Id.genid "o" in *)
-      match env_find x env with
-      | Type.Array Type.Unit -> Asm.Ans Asm.Nop
-      | Type.Array Type.Float -> Asm.Ans (Asm.StDF (z, x, Asm.V y))
-      | Type.Array _ -> Asm.Ans (Asm.St (z, x, Asm.V y))
-      | _ -> assert false)
+      if
+        (* let offset = Id.genid "o" in *)
+        List.mem_assoc x !Normalize.global_arrays
+      then
+        if List.mem_assoc z !Normalize.global_arrays then
+          let addr, ty = List.assoc z !Normalize.global_arrays in
+          let z' = Id.genid "g" in
+          let offset = Id.genid "o" in
+          Asm.Let
+            ( (z', Type.Int),
+              Asm.Set addr,
+              let addr', ty' = List.assoc x !Normalize.global_arrays in
+              match ty' with
+              | Type.Float ->
+                  Asm.Let
+                    ( (offset, Type.Int),
+                      Asm.Set addr',
+                      Asm.Ans (Asm.StDF (z', y, Asm.V offset)) )
+              | Type.Int ->
+                  Asm.Let
+                    ( (offset, Type.Int),
+                      Asm.Set addr',
+                      Asm.Ans (Asm.St (z', y, Asm.V offset)) )
+              | _ -> assert false )
+        else
+          let addr, ty = List.assoc x !Normalize.global_arrays in
+          let offset = Id.genid "o" in
+          match ty with
+          | Type.Float ->
+              Asm.Let
+                ( (offset, Type.Int),
+                  Asm.Set addr,
+                  Asm.Ans (Asm.StDF (z, y, Asm.V offset)) )
+          | Type.Int ->
+              Asm.Let
+                ( (offset, Type.Int),
+                  Asm.Set addr,
+                  Asm.Ans (Asm.St (z, y, Asm.V offset)) )
+          | _ -> assert false
+      else if List.mem_assoc z !Normalize.global_arrays then
+        let addr, ty = List.assoc z !Normalize.global_arrays in
+        let z' = Id.genid "g" in
+        Asm.Let
+          ( (z', Type.Int),
+            Asm.Set addr,
+            match env_find x env with
+            | Type.Array Type.Unit -> Asm.Ans Asm.Nop
+            | Type.Array Type.Float -> Asm.Ans (Asm.StDF (z', x, Asm.V y))
+            | Type.Array _ -> Asm.Ans (Asm.St (z', x, Asm.V y))
+            | _ -> assert false )
+      else
+        match env_find x env with
+        | Type.Array Type.Unit -> Asm.Ans Asm.Nop
+        | Type.Array Type.Float -> Asm.Ans (Asm.StDF (z, x, Asm.V y))
+        | Type.Array _ -> Asm.Ans (Asm.St (z, x, Asm.V y))
+        | _ -> assert false)
   | Closure.ExtArray (Id.L x) -> Asm.Ans (Asm.SetL (Id.L ("min_caml_" ^ x)))
   | Closure.ExtTuple (Id.L x) -> Asm.Ans (Asm.SetL (Id.L ("min_caml_" ^ x)))
 

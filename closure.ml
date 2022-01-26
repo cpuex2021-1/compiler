@@ -24,6 +24,7 @@ type t =
   | AppCls of Id.t * Id.t list
   | AppDir of Id.l * Id.t list
   | Tuple of Id.t list
+  | GlobalTuple of int * Id.t list
   | LetTuple of (Id.t * Type.t) list * Id.t * t
   | Get of Id.t * Id.t
   | Put of Id.t * Id.t * Id.t
@@ -38,6 +39,11 @@ type fundef = {
 }
 
 type prog = Prog of fundef list * t
+
+let fv_sub x = if List.mem_assoc x !Normalize.global_arrays then [] else [ x ]
+
+let rec fv_sub_list l =
+  match l with [] -> [] | x :: rest -> fv_sub x @ fv_sub_list rest
 
 let rec fv = function
   | Unit | Int _ | Float _ | ExtArray _ | ExtTuple _ -> []
@@ -59,7 +65,7 @@ let rec fv = function
   | MakeCls ((x, t), { entry = l; actual_fv = ys }, e) ->
       set_remove x (set_union ys (fv e))
   | AppCls (x, ys) -> x :: ys
-  | AppDir (_, xs) | Tuple xs -> xs
+  | AppDir (_, xs) | Tuple xs | GlobalTuple (_, xs) -> xs
   | LetTuple (xts, y, e) -> set_add y (set_diff (fv e) (List.map fst xts))
   | Put (x, y, z) -> [ x; y; z ]
 
@@ -124,6 +130,7 @@ let rec g env known = function
   | Normalize.Put (x, y, z) -> Put (x, y, z)
   | Normalize.ExtArray x -> ExtArray (Id.L x)
   | Normalize.ExtTuple x -> ExtTuple (Id.L x)
+  | Normalize.GlobalTuple (addr, xs) -> GlobalTuple (addr, xs)
   | Normalize.ExtFunApp (x, ys) -> AppDir (Id.L x, ys)
 
 let f e =
@@ -258,6 +265,9 @@ let rec print_t t indent =
   | AppDir (Id.L id, idl) ->
       "AppDir " ^ id ^ List.fold_left (fun a b -> a ^ " " ^ b) "" idl ^ "\n"
   | Tuple tl -> "TUPLE" ^ List.fold_left (fun s t -> s ^ " " ^ t) "" tl
+  | GlobalTuple (addr, tl) ->
+      "GlobalTuple @" ^ string_of_int addr ^ " "
+      ^ List.fold_left (fun s t -> s ^ " " ^ t) "" tl
   | LetTuple (idl, t1, t2) ->
       "LETTUPLE " ^ "vars:"
       ^ List.fold_left

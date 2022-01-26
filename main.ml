@@ -33,6 +33,8 @@ let compile in_channel out_channel =
     Printf.fprintf oc "[Alpha Transformed]\n";
     Printf.fprintf oc "%s\n" (Normalize.print transformed));
 
+  let transformed = Normalize.global_vars transformed in
+
   (* Normalize.t -> Normalize.t *)
   let optimized = Opt.f transformed !iter !inline_th in
   if !verbose then (

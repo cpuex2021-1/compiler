@@ -39,6 +39,8 @@ let rec beta_g env = function
   | App (g, xs) -> App (find g env, List.map (fun x -> find x env) xs)
   | ExtArray x -> ExtArray x
   | ExtTuple x -> ExtTuple x
+  | GlobalTuple (addr, xs) ->
+      GlobalTuple (addr, List.map (fun x -> find x env) xs)
   | ExtFunApp (x, ys) -> ExtFunApp (x, List.map (fun y -> find y env) ys)
 
 let beta = beta_g []
