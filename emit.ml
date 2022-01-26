@@ -178,7 +178,6 @@ and g' = function
       if y = "zero" || y = "fzero" then ()
       else (
         save y;
-        print_endline "2";
         insns := Fsw (x, offset y, reg_sp) :: !insns)
   | NonTail _, Save (x, y) ->
       assert (set_exist y !stackset);
@@ -187,16 +186,12 @@ and g' = function
   | NonTail x, Restore y when List.mem x allregs ->
       if y = "zero" then insns := Li (x, 0) :: !insns
       else if y = "fzero" then insns := Fli (x, 0.0) :: !insns
-      else (
-        print_endline "3";
-        insns := Lw (x, offset y, reg_sp) :: !insns)
+      else insns := Lw (x, offset y, reg_sp) :: !insns
   | NonTail x, Restore y ->
       assert (List.mem x allfregs);
       if y = "zero" then insns := Li (x, 0) :: !insns
       else if y = "fzero" then insns := Fli (x, 0.0) :: !insns
-      else (
-        print_endline y;
-        insns := Flw (x, offset y, reg_sp) :: !insns)
+      else insns := Flw (x, offset y, reg_sp) :: !insns
   (* 末尾だったら計算結果を第一レジスタにセットしてret *)
   | Tail, ((Nop | St _ | StDF _ | Comment _ | Save _) as exp) ->
       g' (NonTail (Id.gentmp Type.Unit), exp);
