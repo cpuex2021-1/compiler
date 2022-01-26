@@ -75,9 +75,12 @@ let rec shuffle sw xys =
   | [], [] -> []
   | (x, y) :: xys, [] ->
       (* no acyclic moves; resolve a cyclic move *)
-      (y, sw) :: (x, y)
-      :: shuffle sw
-           (List.map (function y', z when y = y' -> (sw, z) | yz -> yz) xys)
+      (y, sw)
+      ::
+      (x, y)
+      ::
+      shuffle sw
+        (List.map (function y', z when y = y' -> (sw, z) | yz -> yz) xys)
   | xys, acyc -> acyc @ shuffle sw xys
 
 type dest = Tail | NonTail of Id.t
@@ -166,23 +169,34 @@ and g' = function
   (* 退避の仮想命令の実装 *)
   | NonTail _, Save (x, y)
     when List.mem x allregs && not (set_exist y !stackset) ->
-      save y;
-      insns := Sw (x, offset y, reg_sp) :: !insns
+      if y = "zero" || y = "fzero" then ()
+      else (
+        save y;
+        insns := Sw (x, offset y, reg_sp) :: !insns)
   | NonTail _, Save (x, y)
     when List.mem x allfregs && not (set_exist y !stackset) ->
-      save y;
-      insns := Fsw (x, offset y, reg_sp) :: !insns
+      if y = "zero" || y = "fzero" then ()
+      else (
+        save y;
+        print_endline "2";
+        insns := Fsw (x, offset y, reg_sp) :: !insns)
   | NonTail _, Save (x, y) ->
       assert (set_exist y !stackset);
       ()
   (* 復帰の仮想命令の実装 *)
   | NonTail x, Restore y when List.mem x allregs ->
-      if y = "zero" then insns := Lw (x, 0, reg_sp) :: !insns
-      else insns := Lw (x, offset y, reg_sp) :: !insns
+      if y = "zero" then insns := Li (x, 0) :: !insns
+      else if y = "fzero" then insns := Fli (x, 0.0) :: !insns
+      else (
+        print_endline "3";
+        insns := Lw (x, offset y, reg_sp) :: !insns)
   | NonTail x, Restore y ->
       assert (List.mem x allfregs);
-      if y = "zero" then insns := Flw (x, 0, reg_sp) :: !insns
-      else insns := Flw (x, offset y, reg_sp) :: !insns
+      if y = "zero" then insns := Li (x, 0) :: !insns
+      else if y = "fzero" then insns := Fli (x, 0.0) :: !insns
+      else (
+        print_endline y;
+        insns := Flw (x, offset y, reg_sp) :: !insns)
   (* 末尾だったら計算結果を第一レジスタにセットしてret *)
   | Tail, ((Nop | St _ | StDF _ | Comment _ | Save _) as exp) ->
       g' (NonTail (Id.gentmp Type.Unit), exp);

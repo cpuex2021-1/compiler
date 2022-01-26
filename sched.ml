@@ -423,7 +423,7 @@ let rec f e n =
     let e' = constfold e in
     let e' = elim e' in
     let e' = peephole e' in
-    (* let e' = constreg e' in *)
+    let e' = constreg e' in
     Printf.eprintf "eliminated asm counter %d\n" !elim_count;
     Printf.eprintf "peephole optimization counter %d\n" !opt_count;
     Printf.eprintf "const reg counter %d\n" !opt_count;
