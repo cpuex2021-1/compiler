@@ -28,3 +28,5 @@ let gentmp typ =
   Printf.sprintf "T%s%d" (id_of_typ typ) !counter
 
 let to_string (t : t) : string = t
+
+let get_name (L t) : string = t

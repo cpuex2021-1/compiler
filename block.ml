@@ -117,10 +117,8 @@ let def_use instr =
       (erase_zero [ fst dest ], erase_zero [ x; y ])
   | St (dest, x, y, V z) | StDF (dest, x, y, V z) ->
       (erase_zero [ fst dest ], erase_zero [ x; y; z ])
-  (* 変数をいっぱい使用 *)
   | CallCls (dest, name, args, fargs) ->
-      assert false
-      (* クロージャが作られるときはregAlloc.mlでレジスタ割り当てが行われる *)
+      (erase_zero [ fst dest ], erase_zero (args @ fargs))
   | CallDir (dest, Id.L name, args, fargs) ->
       (erase_zero [ fst dest ], erase_zero (args @ fargs))
 
@@ -464,6 +462,7 @@ let rec find_calls fund =
         (fun instr ->
           match instr.instr with
           | CallDir (_, name, _, _) -> ans := name :: !ans
+          (* | CallCls (_, name, _, _) -> ans := name :: !ans *)
           | _ -> ())
         block.instrs)
     fund.blocks;

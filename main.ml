@@ -77,6 +77,8 @@ let compile in_channel out_channel =
     Printf.fprintf oc "[Scheduled]\n";
     Printf.fprintf oc "%s\n" (Virtual.print scheduled));
 
+  (* let blocks = Block.f scheduled in *)
+
   (* Asm.prog -> Asm.prog *)
   let allocated = RegAlloc.f scheduled in
   if !verbose then (
@@ -84,15 +86,16 @@ let compile in_channel out_channel =
     Printf.fprintf oc "[Register Allocated]\n";
     Printf.fprintf oc "%s\n" (Virtual.print allocated));
 
+  (* Asm.prog -> Asm.prog *)
   let allocated = Sched.f2 allocated !iter in
 
   (* Asm.prog -> Emit.exp list *)
   let assembly = Emit.f allocated in
 
-  (* if !verbose then (
-     let oc = open_out "output/08-asm-before-opt.txt" in
-     Printf.fprintf oc "[Assembly before optimizations]\n";
-     Printf.fprintf oc "%s\n" (Emit.print assembly)); *)
+  if !verbose then (
+    let oc = open_out "output/08-asm-before-opt.txt" in
+    Printf.fprintf oc "[Assembly before optimizations]\n";
+    Emit.print_all oc assembly);
 
   (* Emit.exp list -> output *)
   let final = Emit.optimize assembly in
