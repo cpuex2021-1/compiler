@@ -434,6 +434,58 @@ let constreg (Prog (data, fundefs, e)) =
   Printf.fprintf stderr "[constant register]\n";
   Prog (data, List.map constreg_h fundefs, constreg_g e)
 
+(* let rec list_rs' exp =
+  match exp with
+  | Mov x -> [ x ]
+  | Neg x -> [ x ]
+  | Add (x, V y) -> [ x; y ]
+  | Add (x, C y) -> [ x ]
+  | Sub (x, V y) -> [ x; y ]
+  | Sub (x, C y) -> [ x ]
+  | SLL (x, V y) -> [ x; y ]
+  | SLL (x, C y) -> [ x ]
+  | SRL (x, V y) -> [ x; y ]
+  | SRL (x, C y) -> [ x ]
+  | Ld (x, V y) -> [ x; y ]
+  | Ld (x, C y) -> [ x ]
+  | St (x, y, V z) -> [ x; y; z ]
+  | St (x, y, C z) -> [ x; y ]
+  | FMovD x -> [ x ]
+  | FNegD x -> [ x ]
+  | FAddD (x, y) -> [ x; y ]
+  | FSubD (x, y) -> [ x; y ]
+  | FMulD (x, y) -> [ x; y ]
+  | FDivD (x, y) -> [ x; y ]
+  | LdDF (x, V y) -> [ x; y ]
+  | LdDF (x, C y) -> [ x ]
+  | StDF (x, y, V z) -> [ x; y; z ]
+  | StDF (x, y, C z) -> [ x; y ]
+  | IfEq (x, V y, t1, t2) -> [ x; y ] @ list_rs t1 @ list_rs t2
+  | IfEq (x, C y, t1, t2) -> [ x ] @ list_rs t1 @ list_rs t2
+  | IfLE (x, V y, t1, t2) -> [ x; y ] @ list_rs t1 @ list_rs t2
+  | IfLE (x, C y, t1, t2) -> [ x ] @ list_rs t1 @ list_rs t2
+  | IfGE (x, V y, t1, t2) -> [ x; y ] @ list_rs t1 @ list_rs t2
+  | IfGE (x, C y, t1, t2) -> [ x ] @ list_rs t1 @ list_rs t2
+  | IfFEq (x, y, t1, t2) -> [ x; y ] @ list_rs t1 @ list_rs t2
+  | IfFLE (x, y, t1, t2) -> [ x; y ] @ list_rs t1 @ list_rs t2
+  | CallCls (x, ys, zs) -> [ x ] @ ys @ zs
+  | CallDir (x, ys, zs) -> ys @ zs
+  | Save (x, y) -> [ x; y ]
+  | Restore x -> [ x ]
+
+and list_rs exp =
+  match exp with
+  | Ans e -> list_rs' e
+  | Let ((id, ty), e, t) -> list_rs' e @ list_rs t
+
+let elim_unused_h { name = Id.L x; args = ys; fargs = zs; body = e; ret = t } =
+  let e' = elim_unused_g e in
+  { name = Id.L x; args = ys; fargs = zs; body = e'; ret = t }
+
+let elim_unused (Prog (data, fundefs, e)) =
+  Printf.fprintf stderr "[eliminatee unused insns]\n";
+  Prog (data, List.map elim_unused_h fundefs, elim_unused_g e) *)
+
 let rec f e n =
   if n = 0 then e
   else
@@ -441,6 +493,7 @@ let rec f e n =
     let e' = elim e' in
     let e' = peephole e' in
     let e' = constreg e' in
+    (* let e' = elim_unused e' in *)
     Printf.eprintf "eliminated asm counter %d\n" !elim_count;
     Printf.eprintf "peephole optimization counter %d\n" !opt_count;
     Printf.eprintf "const reg counter %d\n" !opt_count;
@@ -451,6 +504,7 @@ let rec f2 e n =
   else
     let e' = elim e in
     let e' = peephole e' in
+    (* let e' = elim_unused e' in *)
     Printf.eprintf "eliminated asm counter %d\n" !elim_count;
     Printf.eprintf "peephole optimization counter %d\n" !opt_count;
     if e = e' then e else f2 e' (n - 1)
