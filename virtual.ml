@@ -123,6 +123,9 @@ let rec g env = function
   | Closure.AppDir (Id.L "fisneg", [ y ]) -> Asm.Ans (Asm.Fisneg y)
   | Closure.AppDir (Id.L "fneg", [ y ]) -> Asm.Ans (Asm.Fneg y)
   | Closure.AppDir (Id.L "fless", [ y; z ]) -> Asm.Ans (Asm.Fless (y, z))
+  | Closure.AppDir (Id.L "fhalf", [ y ]) ->
+      let z = Id.genid "h" in
+      Asm.Let ((z, Type.Float), Asm.SetF 0.5, Asm.Ans (Asm.FMulD (y, z)))
   | Closure.AppDir (Id.L "int_of_float", [ y ]) -> Asm.Ans (Asm.IntOfFloat y)
   | Closure.AppDir (Id.L "float_of_int", [ y ]) -> Asm.Ans (Asm.FloatOfInt y)
   | Closure.AppDir (Id.L "sqrt", [ y ]) -> Asm.Ans (Asm.Sqrt y)
