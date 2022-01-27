@@ -41,6 +41,8 @@ and exp =
   | Flt of reg * reg * reg
   | IntOfFloat of reg * reg
   | FloatOfInt of reg * reg
+  | Fabs of reg * reg
+  | Floor of reg * reg
   | Sqrt of reg * reg
   | Jump of label
   | Jalr of reg * reg * int
@@ -161,7 +163,9 @@ and g' = function
   | NonTail x, Fispos y -> insns := Flt (x, "fzero", y) :: !insns
   | NonTail x, Fisneg y -> insns := Flt (x, y, "fzero") :: !insns
   | NonTail x, Fneg y -> insns := Fneg (x, y) :: !insns
+  | NonTail x, Fabs y -> insns := Fabs (x, y) :: !insns
   | NonTail x, Fless (y, z) -> insns := Flt (x, y, z) :: !insns
+  | NonTail x, Floor y -> insns := Floor (x, y) :: !insns
   | NonTail x, IntOfFloat y -> insns := IntOfFloat (x, y) :: !insns
   | NonTail x, FloatOfInt y -> insns := FloatOfInt (x, y) :: !insns
   | NonTail x, Sqrt y -> insns := Sqrt (x, y) :: !insns
@@ -230,7 +234,8 @@ and g' = function
       insns := Jalr ("zero", "ra", 0) :: !insns
   | ( Tail,
       (( SetF _ | FMovD _ | FNegD _ | FAddD _ | FSubD _ | FMulD _ | FDivD _
-       | LdDF _ | Fneg _ | FloatOfInt _ | Sqrt _ | Fsqr _ ) as exp) ) ->
+       | LdDF _ | Fneg _ | Fabs _ | Floor _ | FloatOfInt _ | Sqrt _ | Fsqr _ )
+      as exp) ) ->
       g' (NonTail fregs.(0), exp);
       insns := Jalr ("zero", "ra", 0) :: !insns
   | Tail, (Restore x as exp) ->
@@ -705,6 +710,12 @@ let rec print oc insns =
           print oc rest
       | Fneg (r1, r2) ->
           Printf.fprintf oc "\tfneg %s, %s\n" r1 r2;
+          print oc rest
+      | Fabs (r1, r2) ->
+          Printf.fprintf oc "\tfabs %s, %s\n" r1 r2;
+          print oc rest
+      | Floor (r1, r2) ->
+          Printf.fprintf oc "\tfloor %s, %s\n" r1 r2;
           print oc rest
       | Lw (r1, i, r2) ->
           Printf.fprintf oc "\tlw %s, %d(%s)\n" r1 i r2;

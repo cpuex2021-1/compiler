@@ -201,8 +201,10 @@ and g' dest cont regenv = function
   | Fispos x -> (Ans (Fispos (find x Type.Float regenv)), regenv)
   | Fisneg x -> (Ans (Fisneg (find x Type.Float regenv)), regenv)
   | Fneg x -> (Ans (Fneg (find x Type.Float regenv)), regenv)
+  | Fabs x -> (Ans (Fabs (find x Type.Float regenv)), regenv)
   | Fless (x, y) ->
       (Ans (Fless (find x Type.Float regenv, find y Type.Float regenv)), regenv)
+  | Floor x -> (Ans (Floor (find x Type.Float regenv)), regenv)
   | IntOfFloat x -> (Ans (IntOfFloat (find x Type.Float regenv)), regenv)
   | FloatOfInt x -> (Ans (FloatOfInt (find x Type.Int regenv)), regenv)
   | Sqrt x -> (Ans (Sqrt (find x Type.Float regenv)), regenv)
