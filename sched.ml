@@ -9,6 +9,8 @@ let elim_count = ref 0
 
 let opt_count = ref 0
 
+let substitutes = ref []
+
 let rec constfold_g' e env =
   (* for Asm.exp *)
   match e with
@@ -110,6 +112,19 @@ let rec constfold_g' e env =
       let yf = findf y env in
       if xf <= yf then IfEq ("zero", C 0, constfold_g e1 env, Ans Nop)
       else IfEq ("zero", C 0, constfold_g e2 env, Ans Nop)
+  | Fiszero x when env_exists x env -> Set (if findf x env = 0. then 1 else 0)
+  | Fispos x when env_exists x env -> Set (if findf x env > 0. then 1 else 0)
+  | Fisneg x when env_exists x env -> Set (if findf x env < 0. then 1 else 0)
+  | Fneg x when env_exists x env -> SetF (-.findf x env)
+  | Fless (x, y) when env_exists x env && env_exists y env ->
+      Set (if findf x env < findf y env then 1 else 0)
+  | IntOfFloat x when env_exists x env -> Set (int_of_float (findf x env))
+  | FloatOfInt x when env_exists x env -> SetF (float_of_int (findi x env))
+  | Sqrt x when env_exists x env -> SetF (sqrt (findf x env))
+  | Fsqr x when env_exists x env ->
+      SetF
+        (let f = findf x env in
+         f *. f)
   | e -> e
 
 and constfold_g e env =
@@ -382,10 +397,12 @@ let rec constreg_g e =
   | Ans _ -> e
   | Let ((x, t), Set 0, e2) ->
       Printf.eprintf "substitute %s for zero\n" x;
+      substitutes := env_add x "zero" !substitutes;
       opt_count := !opt_count + 1;
       constreg_g (subst e2 x "zero")
   | Let ((x, t), SetF f, e2) when f = 0.0 ->
       Printf.eprintf "substitute %s for fzero\n" x;
+      substitutes := env_add x "fzero" !substitutes;
       opt_count := !opt_count + 1;
       constreg_g (subst e2 x "fzero")
   | Let ((x, t), IfEq (y, C 0, e1, e2), e3) ->

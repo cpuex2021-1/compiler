@@ -38,6 +38,10 @@ and exp =
   | Blt of reg * reg * label
   | Feq of reg * reg * reg
   | Fle of reg * reg * reg
+  | Flt of reg * reg * reg
+  | IntOfFloat of reg * reg
+  | FloatOfInt of reg * reg
+  | Sqrt of reg * reg
   | Jump of label
   | Jalr of reg * reg * int
   | Jal of reg * reg
@@ -153,6 +157,15 @@ and g' = function
   | NonTail x, FSubD (y, z) -> insns := Fsub (x, y, z) :: !insns
   | NonTail x, FMulD (y, z) -> insns := Fmul (x, y, z) :: !insns
   | NonTail x, FDivD (y, z) -> insns := Fdiv (x, y, z) :: !insns
+  | NonTail x, Fiszero y -> insns := Feq (x, y, "fzero") :: !insns
+  | NonTail x, Fispos y -> insns := Flt (x, "fzero", y) :: !insns
+  | NonTail x, Fisneg y -> insns := Flt (x, y, "fzero") :: !insns
+  | NonTail x, Fneg y -> insns := Fneg (x, y) :: !insns
+  | NonTail x, Fless (y, z) -> insns := Flt (x, y, z) :: !insns
+  | NonTail x, IntOfFloat y -> insns := IntOfFloat (x, y) :: !insns
+  | NonTail x, FloatOfInt y -> insns := FloatOfInt (x, y) :: !insns
+  | NonTail x, Sqrt y -> insns := Sqrt (x, y) :: !insns
+  | NonTail x, Fsqr y -> insns := Fmul (x, y, y) :: !insns
   | NonTail x, LdDF (y, z') -> (
       match z' with
       | V id ->
@@ -171,13 +184,13 @@ and g' = function
   (* 退避の仮想命令の実装 *)
   | NonTail _, Save (x, y)
     when List.mem x allregs && not (set_exist y !stackset) ->
-      if y = "zero" || y = "fzero" then ()
+      if y = "zero" || y = "fzero" || env_exists y !Sched.substitutes then ()
       else (
         save y;
         insns := Sw (x, offset y, reg_sp) :: !insns)
   | NonTail _, Save (x, y)
     when List.mem x allfregs && not (set_exist y !stackset) ->
-      if y = "zero" || y = "fzero" then ()
+      if y = "zero" || y = "fzero" || env_exists y !Sched.substitutes then ()
       else (
         save y;
         insns := Fsw (x, offset y, reg_sp) :: !insns)
@@ -186,12 +199,20 @@ and g' = function
       ()
   (* 復帰の仮想命令の実装 *)
   | NonTail x, Restore y when List.mem x allregs ->
-      if y = "zero" then insns := Li (x, 0) :: !insns
+      if env_exists y !Sched.substitutes then
+        let tmp = env_find y !Sched.substitutes in
+        if tmp = "zero" then insns := Li (x, 0) :: !insns
+        else insns := Fli (x, 0.0) :: !insns
+      else if y = "zero" then insns := Li (x, 0) :: !insns
       else if y = "fzero" then insns := Fli (x, 0.0) :: !insns
       else insns := Lw (x, offset y, reg_sp) :: !insns
   | NonTail x, Restore y ->
       assert (List.mem x allfregs);
-      if y = "zero" then insns := Li (x, 0) :: !insns
+      if env_exists y !Sched.substitutes then
+        let tmp = env_find y !Sched.substitutes in
+        if tmp = "zero" then insns := Li (x, 0) :: !insns
+        else insns := Fli (x, 0.0) :: !insns
+      else if y = "zero" then insns := Li (x, 0) :: !insns
       else if y = "fzero" then insns := Fli (x, 0.0) :: !insns
       else insns := Flw (x, offset y, reg_sp) :: !insns
   (* 末尾だったら計算結果を第一レジスタにセットしてret *)
@@ -199,8 +220,8 @@ and g' = function
       g' (NonTail (Id.gentmp Type.Unit), exp);
       insns := Jalr ("zero", "ra", 0) :: !insns
   | ( Tail,
-      ((Set _ | SetL _ | Mov _ | Add _ | Sub _ | SLL _ | SRL _ | Ld _) as exp) )
-    ->
+      (( Set _ | SetL _ | Mov _ | Add _ | Sub _ | SLL _ | SRL _ | Ld _
+       | Fiszero _ | Fispos _ | Fisneg _ | Fless _ | IntOfFloat _ ) as exp) ) ->
       g' (NonTail regs.(0), exp);
       insns := Jalr ("zero", "ra", 0) :: !insns
   | Tail, (Neg x as exp) ->
@@ -209,7 +230,7 @@ and g' = function
       insns := Jalr ("zero", "ra", 0) :: !insns
   | ( Tail,
       (( SetF _ | FMovD _ | FNegD _ | FAddD _ | FSubD _ | FMulD _ | FDivD _
-       | LdDF _ ) as exp) ) ->
+       | LdDF _ | Fneg _ | FloatOfInt _ | Sqrt _ | Fsqr _ ) as exp) ) ->
       g' (NonTail fregs.(0), exp);
       insns := Jalr ("zero", "ra", 0) :: !insns
   | Tail, (Restore x as exp) ->
@@ -565,6 +586,7 @@ let rec sched insns cur_blk =
 let rec optimize insns =
   let rec replace = function
     | [] -> []
+    | [ z ] -> [ z ]
     | cur :: rest -> (
         let default _ = cur :: replace rest in
         try
@@ -710,6 +732,18 @@ let rec print oc insns =
           print oc rest
       | Fle (r1, r2, r3) ->
           Printf.fprintf oc "\tfle %s, %s, %s\n" r1 r2 r3;
+          print oc rest
+      | Flt (r1, r2, r3) ->
+          Printf.fprintf oc "\tflt %s, %s, %s\n" r1 r2 r3;
+          print oc rest
+      | IntOfFloat (r1, r2) ->
+          Printf.fprintf oc "\tftoi %s, %s\n" r1 r2;
+          print oc rest
+      | FloatOfInt (r1, r2) ->
+          Printf.fprintf oc "\titof %s, %s\n" r1 r2;
+          print oc rest
+      | Sqrt (r1, r2) ->
+          Printf.fprintf oc "\tfsqrt %s, %s\n" r1 r2;
           print oc rest
       | Jump l ->
           Printf.fprintf oc "\tjump %s\n" l;

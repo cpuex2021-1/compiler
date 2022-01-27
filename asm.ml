@@ -35,6 +35,18 @@ and exp =
   | CallDir of Id.l * Id.t list * Id.t list
   | Save of Id.t * Id.t
   | Restore of Id.t
+  | Fiszero of Id.t
+  | Fispos of Id.t
+  | Fisneg of Id.t
+  | Fneg of Id.t
+  (* | Fabs of Id.t *)
+  | Fless of Id.t * Id.t
+  (* | Fhalf of Id.t *)
+  (* | Floor of Id.t *)
+  | IntOfFloat of Id.t
+  | FloatOfInt of Id.t
+  | Sqrt of Id.t
+  | Fsqr of Id.t
 
 type fundef = {
   name : Id.l;
@@ -122,11 +134,21 @@ let rec fv_exp = function
   | St (x, y, z') | StDF (x, y, z') -> x :: y :: fv_id_or_imm z'
   | FAddD (x, y) | FSubD (x, y) | FMulD (x, y) | FDivD (x, y) -> [ x; y ]
   | IfEq (x, y', e1, e2) | IfLE (x, y', e1, e2) | IfGE (x, y', e1, e2) ->
-      (x :: fv_id_or_imm y') @ remove_and_uniq [] (fv e1 @ fv e2)
+      x :: fv_id_or_imm y' @ remove_and_uniq [] (fv e1 @ fv e2)
   | IfFEq (x, y, e1, e2) | IfFLE (x, y, e1, e2) ->
       x :: y :: remove_and_uniq [] (fv e1 @ fv e2)
-  | CallCls (x, ys, zs) -> (x :: ys) @ zs
+  | CallCls (x, ys, zs) -> x :: ys @ zs
   | CallDir (_, ys, zs) -> ys @ zs
+  | Fiszero x
+  | Fispos x
+  | Fisneg x
+  | Fneg x
+  | IntOfFloat x
+  | FloatOfInt x
+  | Sqrt x
+  | Fsqr x ->
+      [ x ]
+  | Fless (x, y) -> [ x; y ]
 
 and fv = function
   | Ans exp -> fv_exp exp

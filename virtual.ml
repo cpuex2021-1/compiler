@@ -118,6 +118,15 @@ let rec g env = function
   | Closure.AppCls (x, ys) ->
       let int, float = separate (List.map (fun y -> (y, env_find y env)) ys) in
       Asm.Ans (Asm.CallCls (x, int, float))
+  | Closure.AppDir (Id.L "fiszero", [ y ]) -> Asm.Ans (Asm.Fiszero y)
+  | Closure.AppDir (Id.L "fispos", [ y ]) -> Asm.Ans (Asm.Fispos y)
+  | Closure.AppDir (Id.L "fisneg", [ y ]) -> Asm.Ans (Asm.Fisneg y)
+  | Closure.AppDir (Id.L "fneg", [ y ]) -> Asm.Ans (Asm.Fneg y)
+  | Closure.AppDir (Id.L "fless", [ y; z ]) -> Asm.Ans (Asm.Fless (y, z))
+  | Closure.AppDir (Id.L "int_of_float", [ y ]) -> Asm.Ans (Asm.IntOfFloat y)
+  | Closure.AppDir (Id.L "float_of_int", [ y ]) -> Asm.Ans (Asm.FloatOfInt y)
+  | Closure.AppDir (Id.L "sqrt", [ y ]) -> Asm.Ans (Asm.Sqrt y)
+  | Closure.AppDir (Id.L "fsqr", [ y ]) -> Asm.Ans (Asm.Fsqr y)
   | Closure.AppDir (Id.L x, ys) ->
       let int, float = separate (List.map (fun y -> (y, env_find y env)) ys) in
       Asm.Ans (Asm.CallDir (Id.L x, int, float))
@@ -427,6 +436,15 @@ let rec print_exp e n =
       ^ ")"
   | Asm.Save (t1, t2) -> "save " ^ t1 ^ " " ^ t2
   | Asm.Restore t -> "restore " ^ t
+  | Asm.Fiszero t -> "fiszero " ^ t
+  | Asm.Fispos t -> "fispos " ^ t
+  | Asm.Fisneg t -> "fisneg " ^ t
+  | Asm.Fneg t -> "fneg " ^ t
+  | Asm.Fless (t1, t2) -> "fless " ^ t1 ^ " " ^ t2
+  | Asm.IntOfFloat t -> "int_of_float " ^ t
+  | Asm.FloatOfInt t -> "float_of_int " ^ t
+  | Asm.Sqrt t -> "sqrt " ^ t
+  | Asm.Fsqr t -> "fsqr " ^ t
 
 and print_t t n =
   let ind = String.make n ' ' in
