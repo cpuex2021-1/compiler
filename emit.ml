@@ -477,17 +477,12 @@ let rs a =
 
 let rec intersect l1 l2 =
   match l1 with
-  | [] -> []
-  | h1 :: t1 -> (
+  | [] -> false
+  | x :: _ -> (
       match l2 with
-      | [] -> []
-      | h2 :: t2 when h1 < h2 -> intersect t1 l2
-      | h2 :: t2 when h1 > h2 -> intersect l1 t2
-      | h2 :: t2 -> (
-          match intersect t1 t2 with
-          | [] -> [ h1 ]
-          | h3 :: t3 as l when h3 = h1 -> l
-          | h3 :: t3 as l -> h1 :: l))
+      | [] -> false
+      | [ y ] -> if x = y then true else false
+      | y :: z -> if x = y || x = List.hd z then true else false)
 
 let is_depend a b =
   match (a, b) with
@@ -501,9 +496,9 @@ let is_depend a b =
       let rd_b = rd b in
       let rs_a = rs a in
       let rs_b = rs b in
-      intersect rd_a rs_b != [] (* RAW *)
-      || intersect rs_a rd_b != [] (* WAR *)
-      || intersect rd_a rd_b != []
+      intersect rd_a rs_b (* RAW *)
+      || intersect rd_b rs_a (* WAR *)
+      || intersect rd_a rd_b
 (* WAW *)
 
 let rec n_in graph i =
@@ -517,7 +512,7 @@ let rec del graph i =
       if i = x || i = y then del rest i else (x, y) :: del rest i
   | [] -> []
 
-let list_sched blk =
+(* let list_sched blk =
   let graph = ref [] in
   (* (from, to) *)
   let n = List.length blk in
@@ -563,7 +558,28 @@ let list_sched blk =
     if !b = false then Format.eprintf "not proceed@.";
     b := false
   done;
-  !res
+  !res *)
+
+let rec list_sched blk =
+  let rec swap blk =
+    match blk with
+    | [] -> []
+    | [ z ] -> [ z ]
+    | a :: rest -> (
+        let b = List.hd rest in
+        match b with
+        | Lw _ | Flw _ ->
+            if is_depend a b then a :: swap rest
+            else b :: swap (a :: List.tl rest)
+        | _ -> a :: swap rest)
+  in
+  let rec iter b n =
+    if n = 0 then b
+    else
+      let b' = swap b in
+      if b = b' then b else iter b' (n - 1)
+  in
+  iter blk 10000
 
 let rec sched insns cur_blk =
   match insns with
@@ -636,14 +652,14 @@ let rec optimize insns =
         with _ -> default ())
   in
   let rec iter n e =
-    if n = 1000 then e
+    if n = 0 then e
     else
       let e' = replace e in
-      if e = e' then e else iter (n + 1) e'
+      if e = e' then e else iter (n - 1) e'
   in
   let insns = iter 1000 insns in
-  insns
-(* sched insns [] *)
+  (* insns *)
+  sched insns []
 
 let rec print oc insns =
   match insns with
