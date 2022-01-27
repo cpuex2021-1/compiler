@@ -32,6 +32,15 @@ type t =
   | CallDir of (Id.t * Type.t) * Id.l * Id.t list * Id.t list
   | Save of (Id.t * Type.t) * Id.t * Id.t
   | Restore of (Id.t * Type.t) * Id.t
+  | Fiszero of (Id.t * Type.t) * Id.t
+  | Fispos of (Id.t * Type.t) * Id.t
+  | Fisneg of (Id.t * Type.t) * Id.t
+  | Fneg of (Id.t * Type.t) * Id.t
+  | Fless of (Id.t * Type.t) * Id.t * Id.t
+  | IntOfFloat of (Id.t * Type.t) * Id.t
+  | FloatOfInt of (Id.t * Type.t) * Id.t
+  | Sqrt of (Id.t * Type.t) * Id.t
+  | Fsqr of (Id.t * Type.t) * Id.t
 
 type instr = {
   mutable id : Id.t;

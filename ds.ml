@@ -55,3 +55,11 @@ let rec set_inter s1 s2 =
   match s1 with
   | f :: r -> if set_exist f s2 then f :: set_inter r s2 else set_inter r s2
   | [] -> []
+
+let rec set_min s =
+  match s with
+  | [] -> raise Not_found
+  | [ x ] -> x
+  | x :: y ->
+      let z = set_min y in
+      if x < z then x else z
