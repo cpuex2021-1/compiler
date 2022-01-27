@@ -5,6 +5,8 @@ type reg = string
 
 type label = string
 
+exception Selected
+
 type t = exp list
 
 and exp =
@@ -401,6 +403,165 @@ let rec f (Prog (data, fundefs, e)) =
   insns := Jalr ("zero", "ra", 0) :: !insns;
   List.rev !insns
 
+let rd a =
+  match a with
+  | Li (x, _) -> [ x ]
+  | Fli (x, _) -> [ x ]
+  | La (x, _) -> [ x ]
+  | Add (x, _, _) -> [ x ]
+  | Sub (x, _, _) -> [ x ]
+  | Addi (x, _, _) -> [ x ]
+  | Sll (x, _, _) -> [ x ]
+  | Srl (x, _, _) -> [ x ]
+  | Slli (x, _, _) -> [ x ]
+  | Srli (x, _, _) -> [ x ]
+  | Fadd (x, _, _) -> [ x ]
+  | Fsub (x, _, _) -> [ x ]
+  | Fmul (x, _, _) -> [ x ]
+  | Fdiv (x, _, _) -> [ x ]
+  | Fmv (x, _) -> [ x ]
+  | Fmvxw (x, _) -> [ x ]
+  | Fmvwx (x, _) -> [ x ]
+  | Fneg (x, _) -> [ x ]
+  | Lw (x, _, _) -> [ x ]
+  | Flw (x, _, _) -> [ x ]
+  | Feq (x, _, _) -> [ x ]
+  | Fle (x, _, _) -> [ x ]
+  | _ -> []
+
+let rs a =
+  match a with
+  | Add (_, y, z) -> [ y; z ]
+  | Sub (_, y, z) -> [ y; z ]
+  | Addi (_, y, _) -> [ y ]
+  | Sll (_, y, z) -> [ y; z ]
+  | Srl (_, y, z) -> [ y; z ]
+  | Slli (_, y, _) -> [ y ]
+  | Srli (_, y, _) -> [ y ]
+  | Fadd (_, y, z) -> [ y; z ]
+  | Fsub (_, y, z) -> [ y; z ]
+  | Fmul (_, y, z) -> [ y; z ]
+  | Fdiv (_, y, z) -> [ y; z ]
+  | Fmv (_, y) -> [ y ]
+  | Fmvxw (_, y) -> [ y ]
+  | Fmvwx (_, y) -> [ y ]
+  | Fneg (_, y) -> [ y ]
+  | Lw (_, _, z) -> [ z ]
+  | Flw (_, _, z) -> [ z ]
+  | Sw (x, _, z) -> [ x; z ]
+  | Fsw (x, _, z) -> [ x; z ]
+  | Feq (_, y, z) -> [ y; z ]
+  | Fle (_, y, z) -> [ y; z ]
+  | _ -> []
+
+let rec intersect l1 l2 =
+  match l1 with
+  | [] -> []
+  | h1 :: t1 -> (
+      match l2 with
+      | [] -> []
+      | h2 :: t2 when h1 < h2 -> intersect t1 l2
+      | h2 :: t2 when h1 > h2 -> intersect l1 t2
+      | h2 :: t2 -> (
+          match intersect t1 t2 with
+          | [] -> [ h1 ]
+          | h3 :: t3 as l when h3 = h1 -> l
+          | h3 :: t3 as l -> h1 :: l))
+
+let is_depend a b =
+  match (a, b) with
+  | Sw (_, _, _), Sw (_, _, _)
+  | Fsw (_, _, _), Fsw (_, _, _)
+  | Sw (_, _, _), Fsw (_, _, _)
+  | Fsw (_, _, _), Sw (_, _, _) ->
+      true
+  | _, _ ->
+      let rd_a = rd a in
+      let rd_b = rd b in
+      let rs_a = rs a in
+      let rs_b = rs b in
+      intersect rd_a rs_b != [] (* RAW *)
+      || intersect rs_a rd_b != [] (* WAR *)
+      || intersect rd_a rd_b != []
+(* WAW *)
+
+let rec n_in graph i =
+  match graph with
+  | (x, y) :: rest -> if i = y then 1 + n_in rest i else n_in rest i
+  | [] -> 0
+
+let rec del graph i =
+  match graph with
+  | (x, y) :: rest ->
+      if i = x || i = y then del rest i else (x, y) :: del rest i
+  | [] -> []
+
+let list_sched blk =
+  let graph = ref [] in
+  (* (from, to) *)
+  let n = List.length blk in
+  for i = 0 to n - 1 do
+    for j = 0 to n - 1 do
+      if i < j then
+        let a = List.nth blk i in
+        let b = List.nth blk j in
+        if is_depend a b then graph := !graph @ [ (i, j) ] else ()
+      else ()
+    done
+  done;
+  let res = ref [] in
+  let isused = Array.make n false in
+  let b = ref false in
+  while List.length !res < n do
+    (try
+       for i = 0 to n - 1 do
+         match List.nth blk i with
+         | (Lw (_, _, _) | Flw (_, _, _))
+           when n_in !graph i = 0 && isused.(i) = false && !b = false ->
+             isused.(i) <- true;
+             b := true;
+             graph := del !graph i;
+             res := !res @ [ List.nth blk i ];
+             raise Selected
+         | _ -> ()
+       done
+     with Selected -> ());
+    (try
+       for i = 0 to n - 1 do
+         match List.nth blk i with
+         | Lw (_, _, _) | Flw (_, _, _) -> ()
+         | _ when n_in !graph i = 0 && isused.(i) = false && !b = false ->
+             isused.(i) <- true;
+             b := true;
+             graph := del !graph i;
+             res := !res @ [ List.nth blk i ];
+             raise Selected
+         | _ -> ()
+       done
+     with Selected -> ());
+    if !b = false then Format.eprintf "not proceed@.";
+    b := false
+  done;
+  !res
+
+let rec sched insns cur_blk =
+  match insns with
+  | [] -> cur_blk
+  | hd :: rest -> (
+      match hd with
+      | Beq (_, _, _)
+      | Bne (_, _, _)
+      | Blt (_, _, _)
+      | Jump _
+      | Jalr (_, _, _)
+      | Jal (_, _)
+      | Label _ ->
+          let blk = list_sched cur_blk in
+          blk @ [ hd ] @ sched rest []
+      | _ as insn ->
+          let blk = cur_blk @ [ insn ] in
+          sched rest blk)
+
 let rec optimize insns =
   let rec replace = function
     | [] -> []
@@ -458,7 +619,9 @@ let rec optimize insns =
       let e' = replace e in
       if e = e' then e else iter (n + 1) e'
   in
-  iter 1000 insns
+  let insns = iter 1000 insns in
+  insns
+(* sched insns [] *)
 
 let rec print oc insns =
   match insns with
