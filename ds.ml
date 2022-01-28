@@ -63,3 +63,6 @@ let rec set_min s =
   | x :: y ->
       let z = set_min y in
       if x < z then x else z
+
+let rec list_include a b =
+  match a with [] -> true | x :: xs -> env_exists x b && list_include xs b

@@ -99,7 +99,7 @@ let rec g env known = function
       let e1' = g (add_list yts env') known' e1 in
       let zs = set_diff (fv e1') (List.map fst yts) in
       let known', e1' =
-        if zs = [] then (known', e1')
+        if zs = [] || list_include zs !Normalize.global_arrays then (known', e1')
         else (
           Format.eprintf "free variable(s) %s found in function %s@."
             (Id.pp_list zs) x;
