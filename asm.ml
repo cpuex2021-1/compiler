@@ -91,7 +91,7 @@ let regs =
     "swp";
   |]
 
-let fregs = Array.init 13 (fun i -> Printf.sprintf "f%d" i)
+let fregs = Array.init 27 (fun i -> Printf.sprintf "f%d" i)
 
 let allregs = Array.to_list regs
 
@@ -162,3 +162,59 @@ let rec concat e1 xt e2 =
   | Let (yt, exp, e1') -> Let (yt, exp, concat e1' xt e2)
 
 let align i = if i mod 2 = 0 then i else i + 1
+
+type fundata = { arg_regs : Id.t list; ret_reg : Id.t; use_regs : Id.t list }
+
+let (fundata : (Id.t * fundata) list ref) =
+  ref
+    [
+      ( "create_array",
+        {
+          arg_regs = [ "a0"; "a1" ];
+          ret_reg = "a0";
+          use_regs = allregs @ allfregs;
+        } );
+      ( "create_float_array",
+        {
+          arg_regs = [ "a0"; "f0" ];
+          ret_reg = "a0";
+          use_regs = allregs @ allfregs;
+        } );
+      ( "create_global_array",
+        {
+          arg_regs = [ "a0"; "a1"; "a2" ];
+          ret_reg = "a0";
+          use_regs = allregs @ allfregs;
+        } );
+      ( "create_float_array",
+        {
+          arg_regs = [ "a0"; "a1"; "f0" ];
+          ret_reg = "a0";
+          use_regs = allregs @ allfregs;
+        } );
+      ( "fabs",
+        { arg_regs = [ "f0" ]; ret_reg = "f0"; use_regs = allregs @ allfregs }
+      );
+      ( "floor",
+        { arg_regs = [ "f0" ]; ret_reg = "f0"; use_regs = allregs @ allfregs }
+      );
+      ( "print_char",
+        { arg_regs = [ "a0" ]; ret_reg = "a0"; use_regs = allregs @ allfregs }
+      );
+      ( "print_int",
+        { arg_regs = [ "a0" ]; ret_reg = "a0"; use_regs = allregs @ allfregs }
+      );
+      ( "read_int",
+        { arg_regs = []; ret_reg = "a0"; use_regs = allregs @ allfregs } );
+      ( "read_float",
+        { arg_regs = []; ret_reg = "f0"; use_regs = allregs @ allfregs } );
+      ( "sin",
+        { arg_regs = [ "f0" ]; ret_reg = "f0"; use_regs = allregs @ allfregs }
+      );
+      ( "cos",
+        { arg_regs = [ "f0" ]; ret_reg = "f0"; use_regs = allregs @ allfregs }
+      );
+      ( "atan",
+        { arg_regs = [ "f0" ]; ret_reg = "f0"; use_regs = allregs @ allfregs }
+      );
+    ]

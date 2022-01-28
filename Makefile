@@ -12,6 +12,8 @@ SOURCES = \
 	asm.ml \
 	virtual.ml \
 	sched.ml \
+	block.ml \
+	regColor.ml \
 	regAlloc.ml \
 	emit.ml \
 	eval.ml \

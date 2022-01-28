@@ -297,8 +297,33 @@ let h
       (fun z t offset load ->
         Asm.Let ((z, t), Asm.Ld (Asm.reg_cl, Asm.C offset), load))
   in
+  let _, _, _, rs, frs =
+    List.fold_left
+      (fun (iregs, fregs, xs, rs, frs) (x, t) ->
+        match t with
+        | Type.Unit -> (iregs, fregs, xs, rs, frs)
+        | Type.Float ->
+            (iregs, List.tl fregs, xs @ [ x ], rs, frs @ [ List.hd fregs ])
+        | _ -> (List.tl iregs, fregs, xs @ [ x ], rs @ [ List.hd iregs ], frs))
+      (Asm.allregs, Asm.allfregs, [], [], [])
+      yts
+  in
   match t with
   | Type.Fun (_, t2) ->
+      let ret_reg' =
+        match t2 with
+        | Type.Unit -> "%dummy"
+        | Type.Float -> List.hd Asm.allfregs
+        | _ -> List.hd Asm.allregs
+      in
+      Asm.fundata :=
+        env_add x
+          {
+            Asm.arg_regs = rs @ frs;
+            Asm.ret_reg = ret_reg';
+            Asm.use_regs = Asm.allregs @ Asm.allfregs;
+          }
+          !Asm.fundata;
       {
         Asm.name = Id.L x;
         Asm.args = int;

@@ -65,10 +65,6 @@ let striding_nodes = ref []
 
 let is_loop = ref false
 
-type fundata = { arg_regs : Id.t list; ret_reg : Id.t; use_regs : Id.t list }
-
-let fundata = ref []
-
 let rec erase_zero ls =
   match ls with
   | [] -> []
@@ -90,13 +86,14 @@ let get_tp instr =
   | LdDF (xt, x, Asm.C _)
   | IfEq (xt, x, Asm.C _, _, _)
   | IfLE (xt, x, Asm.C _, _, _)
-  | IfGE (xt, x, Asm.C _, _, _) ->
+  | IfGE (xt, x, Asm.C _, _, _)
+  | FloatOfInt (xt, x) ->
       erase_zero [ xt; (x, Type.Int) ]
   | Sqrt (xt, x)
   | Fsqr (xt, x)
   | FMovD (xt, x)
   | FNegD (xt, x)
-  | Fispos (xt, x)
+  | Fiszero (xt, x)
   | Fispos (xt, x)
   | Fisneg (xt, x)
   | Fneg (xt, x)
@@ -619,19 +616,19 @@ let set_together n li =
   together := env_add n (a @ li) !together
 
 let get_arg_regs x =
-  try (env_find x !fundata).arg_regs
+  try (env_find x !Asm.fundata).arg_regs
   with Not_found ->
     Printf.eprintf "Not_found %s\n" x;
     assert false
 
 let get_ret_reg x =
-  try (env_find x !fundata).ret_reg
+  try (env_find x !Asm.fundata).ret_reg
   with Not_found ->
     Printf.eprintf "Not_found %s\n" x;
     assert false
 
 let get_use_regs x =
-  try (env_find x !fundata).use_regs
+  try (env_find x !Asm.fundata).use_regs
   with Not_found ->
     Printf.printf "\tNotFound %s\n" x;
     allregs @ allfregs
@@ -715,9 +712,7 @@ let assign_colors fundef =
         if set_exist (get_alias w) (set_union !colored_nodes !precolored) then
           ok_colors := set_remove (get_color (get_alias w)) !ok_colors)
       (get_adj_list n);
-    if [] = !ok_colors then (
-      Format.eprintf "%s" n;
-      spilled_nodes := set_add n !spilled_nodes)
+    if [] = !ok_colors then spilled_nodes := set_add n !spilled_nodes
     else (
       colored_nodes := set_add n !colored_nodes;
       let c = select_color fundef n !ok_colors in
@@ -912,16 +907,17 @@ let rec main is_first (fund : Block.fundef) =
     main false fund)
   else (
     (try
-       let data = env_find name !fundata in
+       let data = env_find name !Asm.fundata in
        let args =
          List.map
            (fun x -> try env_find x !color with Not_found -> "a0")
            (fund.args @ fund.fargs)
        in
        let data = { data with arg_regs = args } in
-       fundata := env_add name data !fundata
+       Asm.fundata := env_add name data !Asm.fundata
      with Not_found -> assert (name = "min_caml_start"));
-    colorenv := env_add name !color !colorenv)
+    colorenv := env_add name !color !colorenv;
+    print_endline "9")
 
 let current_pos = ref ""
 
@@ -1124,7 +1120,7 @@ let h
       Asm.ret = t;
     } =
   let data =
-    if env_exists x !fundata then env_find x !fundata else assert false
+    if env_exists x !Asm.fundata then env_find x !Asm.fundata else assert false
   in
   current_pos := x;
 
@@ -1141,7 +1137,7 @@ let h
 
   let e', _ = g (data.ret_reg, t) cont regenv e in
 
-  fundata := env_add x data !fundata;
+  Asm.fundata := env_add x data !Asm.fundata;
   let env =
     set_union data.arg_regs (set_add data.ret_reg (get_use_regs_ x e'))
   in
@@ -1149,7 +1145,7 @@ let h
   let env = set_union [ Asm.reg_sw; Asm.reg_fsw ] env in
   let env = set_remove "zero" (set_remove "fzero" env) in
   let data = { data with use_regs = env } in
-  fundata := env_add x data !fundata;
+  Asm.fundata := env_add x data !Asm.fundata;
 
   {
     Asm.name = Id.L x;

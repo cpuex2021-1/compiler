@@ -77,10 +77,12 @@ let compile in_channel out_channel =
     Printf.fprintf oc "[Scheduled]\n";
     Printf.fprintf oc "%s\n" (Virtual.print scheduled));
 
-  (* let blocks = Block.f scheduled in *)
+  let blocks = Block.f scheduled in
+  let allocated = RegColor.f blocks in
+  print_endline "Done coloring";
 
   (* Asm.prog -> Asm.prog *)
-  let allocated = RegAlloc.f scheduled in
+  (* let allocated = RegAlloc.f scheduled in *)
   if !verbose then (
     let oc = open_out "output/07-register-allocated.txt" in
     Printf.fprintf oc "[Register Allocated]\n";

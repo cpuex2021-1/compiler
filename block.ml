@@ -104,7 +104,15 @@ let def_use instr =
   | IfEq (dest, x, C _, _, _)
   | IfLE (dest, x, C _, _, _)
   | IfGE (dest, x, C _, _, _)
-  | Save (dest, x, _) ->
+  | Save (dest, x, _)
+  | Fiszero (dest, x)
+  | Fispos (dest, x)
+  | Fisneg (dest, x)
+  | Fneg (dest, x)
+  | IntOfFloat (dest, x)
+  | FloatOfInt (dest, x)
+  | Sqrt (dest, x)
+  | Fsqr (dest, x) ->
       (erase_zero [ fst dest ], erase_zero [ x ])
   | Add (dest, x, V y)
   | Sub (dest, x, V y)
@@ -122,7 +130,8 @@ let def_use instr =
   | IfLE (dest, x, V y, _, _)
   | IfGE (dest, x, V y, _, _)
   | IfFEq (dest, x, y, _, _)
-  | IfFLE (dest, x, y, _, _) ->
+  | IfFLE (dest, x, y, _, _)
+  | Fless (dest, x, y) ->
       (erase_zero [ fst dest ], erase_zero [ x; y ])
   | St (dest, x, y, V z) | StDF (dest, x, y, V z) ->
       (erase_zero [ fst dest ], erase_zero [ x; y; z ])
@@ -367,6 +376,33 @@ and g' fund block dest = function
       add_instr (Restore (dest, x)) block;
       block
   | Asm.Comment _ -> block
+  | Asm.Fiszero x ->
+      add_instr (Fiszero (dest, x)) block;
+      block
+  | Asm.Fispos x ->
+      add_instr (Fispos (dest, x)) block;
+      block
+  | Asm.Fisneg x ->
+      add_instr (Fisneg (dest, x)) block;
+      block
+  | Asm.Fneg x ->
+      add_instr (Fneg (dest, x)) block;
+      block
+  | Asm.Fless (x, y) ->
+      add_instr (Fless (dest, x, y)) block;
+      block
+  | Asm.IntOfFloat x ->
+      add_instr (IntOfFloat (dest, x)) block;
+      block
+  | Asm.FloatOfInt x ->
+      add_instr (FloatOfInt (dest, x)) block;
+      block
+  | Asm.Sqrt x ->
+      add_instr (Sqrt (dest, x)) block;
+      block
+  | Asm.Fsqr x ->
+      add_instr (Fsqr (dest, x)) block;
+      block
 
 let h
     {
@@ -455,7 +491,15 @@ let replace instr x y =
       CallDir (rr dest, Id.L name, List.map rep args, List.map rep fargs)
   | Save (dest, x, y) -> Save (rr dest, rep x, y)
   | Restore (dest, x) -> Restore (rr dest, x)
-  | Comment x -> Comment x
+  | Fiszero (dest, x) -> Fiszero (rr dest, x)
+  | Fispos (dest, x) -> Fispos (rr dest, x)
+  | Fisneg (dest, x) -> Fisneg (rr dest, x)
+  | Fneg (dest, x) -> Fneg (rr dest, x)
+  | Fless (dest, x, y) -> Fless (rr dest, x, y)
+  | IntOfFloat (dest, x) -> IntOfFloat (rr dest, x)
+  | FloatOfInt (dest, x) -> FloatOfInt (rr dest, x)
+  | Sqrt (dest, x) -> Sqrt (rr dest, x)
+  | Fsqr (dest, x) -> Fsqr (rr dest, x)
 
 type fund_dep = {
   fname : Id.l;
