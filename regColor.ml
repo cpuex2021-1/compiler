@@ -916,8 +916,7 @@ let rec main is_first (fund : Block.fundef) =
        let data = { data with arg_regs = args } in
        Asm.fundata := env_add name data !Asm.fundata
      with Not_found -> assert (name = "min_caml_start"));
-    colorenv := env_add name !color !colorenv;
-    print_endline "9")
+    colorenv := env_add name !color !colorenv)
 
 let current_pos = ref ""
 

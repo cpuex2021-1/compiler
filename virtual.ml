@@ -196,11 +196,10 @@ let rec g env = function
         in
         load
   | Closure.Get (x, y) -> (
-      if
-        (* let offset = Id.genid "o" in *)
-        List.mem_assoc x !Normalize.global_arrays
+      if (* let offset = Id.genid "o" in *)
+         env_exists x !Normalize.global_arrays
       then
-        let addr, ty = List.assoc x !Normalize.global_arrays in
+        let addr, ty = env_find x !Normalize.global_arrays in
         let offset = Id.genid "o" in
         match ty with
         | Type.Float ->
@@ -221,18 +220,17 @@ let rec g env = function
         | Type.Array _ -> Asm.Ans (Asm.Ld (x, Asm.V y))
         | _ -> assert false)
   | Closure.Put (x, y, z) -> (
-      if
-        (* let offset = Id.genid "o" in *)
-        List.mem_assoc x !Normalize.global_arrays
+      if (* let offset = Id.genid "o" in *)
+         env_exists x !Normalize.global_arrays
       then
-        if List.mem_assoc z !Normalize.global_arrays then
-          let addr, ty = List.assoc z !Normalize.global_arrays in
+        if env_exists z !Normalize.global_arrays then
+          let addr, ty = env_find z !Normalize.global_arrays in
           let z' = Id.genid "g" in
           let offset = Id.genid "o" in
           Asm.Let
             ( (z', Type.Int),
               Asm.Set addr,
-              let addr', ty' = List.assoc x !Normalize.global_arrays in
+              let addr', ty' = env_find x !Normalize.global_arrays in
               match ty' with
               | Type.Float ->
                   Asm.Let
@@ -246,7 +244,7 @@ let rec g env = function
                       Asm.Ans (Asm.St (z', y, Asm.V offset)) )
               | _ -> assert false )
         else
-          let addr, ty = List.assoc x !Normalize.global_arrays in
+          let addr, ty = env_find x !Normalize.global_arrays in
           let offset = Id.genid "o" in
           match ty with
           | Type.Float ->
@@ -260,8 +258,8 @@ let rec g env = function
                   Asm.Set addr,
                   Asm.Ans (Asm.St (z, y, Asm.V offset)) )
           | _ -> assert false
-      else if List.mem_assoc z !Normalize.global_arrays then
-        let addr, ty = List.assoc z !Normalize.global_arrays in
+      else if env_exists z !Normalize.global_arrays then
+        let addr, ty = env_find z !Normalize.global_arrays in
         let z' = Id.genid "g" in
         Asm.Let
           ( (z', Type.Int),
