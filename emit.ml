@@ -38,6 +38,7 @@ and exp =
   | Beq of reg * reg * label
   | Bne of reg * reg * label
   | Blt of reg * reg * label
+  | Bge of reg * reg * label
   | Feq of reg * reg * reg
   | Fle of reg * reg * reg
   | Flt of reg * reg * reg
@@ -255,7 +256,7 @@ and g' = function
       g (Tail, e2)
   | Tail, IfLE (x, y', e1, e2) ->
       let b_else = Id.genid "ble_else" in
-      insns := Blt (pp_id_or_imm y', x, b_else) :: !insns;
+      insns := Bge (x, pp_id_or_imm y', b_else) :: !insns;
       let stackset_back = !stackset in
       g (Tail, e1);
       insns := Label b_else :: !insns;
@@ -304,7 +305,7 @@ and g' = function
   | NonTail z, IfLE (x, y', e1, e2) ->
       let b_else = Id.genid "ble_else" in
       let b_cont = Id.genid "ble_cont" in
-      insns := Blt (pp_id_or_imm y', x, b_else) :: !insns;
+      insns := Bge (x, pp_id_or_imm y', b_else) :: !insns;
       let stackset_back = !stackset in
       g (NonTail z, e1);
       let stackset1 = !stackset in
@@ -599,6 +600,7 @@ let rec sched insns cur_blk =
       | Beq (_, _, _)
       | Bne (_, _, _)
       | Blt (_, _, _)
+      | Bge (_, _, _)
       | Jump _
       | Jalr (_, _, _)
       | Jal (_, _)
@@ -758,6 +760,9 @@ let rec print oc insns =
           print oc rest
       | Blt (r1, r2, l) ->
           Printf.fprintf oc "\tblt %s, %s, %s\n" r1 r2 l;
+          print oc rest
+      | Bge (r1, r2, l) ->
+          Printf.fprintf oc "\tbge %s, %s, %s\n" r1 r2 l;
           print oc rest
       | Feq (r1, r2, r3) ->
           Printf.fprintf oc "\tfeq %s, %s, %s\n" r1 r2 r3;
