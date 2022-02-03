@@ -1,6 +1,6 @@
 open Ds
 
-let hp_init = ref 16777216
+let hp_init = ref (-512)
 
 let global_arrays = ref []
 
@@ -330,6 +330,41 @@ let rec alpha_ env exp =
 
 let alpha exp = alpha_ [] exp
 
+let rec subst_global exp =
+  match exp with
+  | Put (x, y, z) when env_exists x !global_arrays ->
+      let addr, ty = env_find x !global_arrays in
+      let offset1 = Id.genid "o" in
+      let offset2 = Id.genid "o" in
+      Let
+        ( (offset1, Type.Int),
+          Int addr,
+          Let
+            ( (offset2, Type.Int),
+              Add (y, offset1),
+              if ty = Type.Int then Put ("zero", offset2, z)
+              else Put ("fzero", offset2, z) ) )
+  | Get (x, y) when env_exists x !global_arrays ->
+      let addr, ty = env_find x !global_arrays in
+      let offset1 = Id.genid "o" in
+      let offset2 = Id.genid "o" in
+      Let
+        ( (offset1, Type.Int),
+          Int addr,
+          Let
+            ( (offset2, Type.Int),
+              Add (y, offset1),
+              if ty = Type.Int then Get ("zero", offset2)
+              else Get ("fzero", offset2) ) )
+  | IfEq (x, y, e1, e2) -> IfEq (x, y, subst_global e1, subst_global e2)
+  | IfLE (x, y, e1, e2) -> IfLE (x, y, subst_global e1, subst_global e2)
+  | Let ((x, t), e1, e2) -> Let ((x, t), subst_global e1, subst_global e2)
+  | LetRec ({ name = x, t; args = yts; body = e1 }, e2) ->
+      LetRec
+        ({ name = (x, t); args = yts; body = subst_global e1 }, subst_global e2)
+  | LetTuple (xts, y, e) -> LetTuple (xts, y, subst_global e)
+  | e -> e
+
 let rec is_global_array = function
   | Let ((_, Type.Int), Int addr, ExtFunApp ("create_global_float_array", _)) ->
       (addr, Type.Float)
@@ -368,7 +403,7 @@ let rec set_global_tuples = function
 let global_vars e =
   set_global_arrays e;
   set_global_tuples e;
-  e
+  subst_global e
 
 let rec print_env env =
   match env with

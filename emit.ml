@@ -798,7 +798,7 @@ let rec print oc insns =
 
 let print_all oc insns =
   Format.eprintf "generating assembly...@.";
-  Printf.fprintf oc "\tli hp, %d\n" !Normalize.hp_init;
+  (* Printf.fprintf oc "\tli hp, %d\n" !Normalize.hp_init; *)
   Printf.fprintf oc "\tjump min_caml_start\n";
   let print_file filename =
     let chan = open_in filename in

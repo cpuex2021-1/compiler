@@ -65,4 +65,4 @@ let rec set_min s =
       if x < z then x else z
 
 let rec list_include a b =
-  match a with [] -> true | x :: xs -> env_exists x b && list_include xs b
+  match a with [] -> true | x :: xs -> set_exist x b && list_include xs b
