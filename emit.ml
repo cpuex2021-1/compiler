@@ -107,10 +107,7 @@ and g' = function
   (* 末尾でなかったら計算結果をdestにセット *)
   | NonTail _, Nop -> ()
   | NonTail x, Set i -> insns := Li (x, i) :: !insns
-  | NonTail x, SetF f ->
-      insns :=
-        Lui_f ("a21", f)
-        :: Addi_f ("a21", "a21", f) :: Fmvwx (x, "a21") :: !insns
+  | NonTail x, SetF f -> insns := Lui_f (x, f) :: Addi_f (x, x, f) :: !insns
   | NonTail x, SetL (Id.L y) ->
       insns := Lui_l (x, y) :: Addi_l (x, x, y) :: !insns
   | NonTail x, Mov y when x = y -> ()
