@@ -116,8 +116,13 @@ let rec constfold_g' e env =
   | Fispos x when env_exists x env -> Set (if findf x env > 0. then 1 else 0)
   | Fisneg x when env_exists x env -> Set (if findf x env < 0. then 1 else 0)
   | Fneg x when env_exists x env -> SetF (-.findf x env)
+  | Fabs x when env_exists x env ->
+      SetF
+        (let f = findf x env in
+         if f < 0. then -.f else f)
   | Fless (x, y) when env_exists x env && env_exists y env ->
       Set (if findf x env < findf y env then 1 else 0)
+  | Floor x when env_exists x env -> SetF (floor (findf x env))
   | IntOfFloat x when env_exists x env -> Set (int_of_float (findf x env))
   | FloatOfInt x when env_exists x env -> SetF (float_of_int (findi x env))
   | Sqrt x when env_exists x env -> SetF (sqrt (findf x env))

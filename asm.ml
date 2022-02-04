@@ -39,10 +39,9 @@ and exp =
   | Fispos of Id.t
   | Fisneg of Id.t
   | Fneg of Id.t
-  (* | Fabs of Id.t *)
+  | Fabs of Id.t
   | Fless of Id.t * Id.t
-  (* | Fhalf of Id.t *)
-  (* | Floor of Id.t *)
+  | Floor of Id.t
   | IntOfFloat of Id.t
   | FloatOfInt of Id.t
   | Sqrt of Id.t
@@ -143,6 +142,8 @@ let rec fv_exp = function
   | Fispos x
   | Fisneg x
   | Fneg x
+  | Fabs x
+  | Floor x
   | IntOfFloat x
   | FloatOfInt x
   | Sqrt x

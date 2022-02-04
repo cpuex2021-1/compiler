@@ -122,7 +122,9 @@ let rec g env = function
   | Closure.AppDir (Id.L "fispos", [ y ]) -> Asm.Ans (Asm.Fispos y)
   | Closure.AppDir (Id.L "fisneg", [ y ]) -> Asm.Ans (Asm.Fisneg y)
   | Closure.AppDir (Id.L "fneg", [ y ]) -> Asm.Ans (Asm.Fneg y)
+  | Closure.AppDir (Id.L "fabs", [ y ]) -> Asm.Ans (Asm.Fabs y)
   | Closure.AppDir (Id.L "fless", [ y; z ]) -> Asm.Ans (Asm.Fless (y, z))
+  | Closure.AppDir (Id.L "floor", [ y ]) -> Asm.Ans (Asm.Floor y)
   | Closure.AppDir (Id.L "fhalf", [ y ]) ->
       let z = Id.genid "h" in
       Asm.Let ((z, Type.Float), Asm.SetF 0.5, Asm.Ans (Asm.FMulD (y, z)))
@@ -466,7 +468,9 @@ let rec print_exp e n =
   | Asm.Fispos t -> "fispos " ^ t
   | Asm.Fisneg t -> "fisneg " ^ t
   | Asm.Fneg t -> "fneg " ^ t
+  | Asm.Fabs t -> "fabs " ^ t
   | Asm.Fless (t1, t2) -> "fless " ^ t1 ^ " " ^ t2
+  | Asm.Floor t -> "floor " ^ t
   | Asm.IntOfFloat t -> "int_of_float " ^ t
   | Asm.FloatOfInt t -> "float_of_int " ^ t
   | Asm.Sqrt t -> "sqrt " ^ t
