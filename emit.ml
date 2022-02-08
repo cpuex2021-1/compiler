@@ -747,6 +747,7 @@ let rec print oc insns tmp =
       let ty = insn_typ cur in
       if ty = 4 then (
         print_line oc tmp;
+        let tmp = [| Nop; Nop; Nop; Nop |] in
         tmp.(0) <- cur;
         (* if tmp.(0) is branch, others are after that *)
         print oc rest tmp)
