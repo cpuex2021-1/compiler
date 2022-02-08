@@ -83,12 +83,9 @@ let rec shuffle sw xys =
   | [], [] -> []
   | (x, y) :: xys, [] ->
       (* no acyclic moves; resolve a cyclic move *)
-      (y, sw)
-      ::
-      (x, y)
-      ::
-      shuffle sw
-        (List.map (function y', z when y = y' -> (sw, z) | yz -> yz) xys)
+      (y, sw) :: (x, y)
+      :: shuffle sw
+           (List.map (function y', z when y = y' -> (sw, z) | yz -> yz) xys)
   | xys, acyc -> acyc @ shuffle sw xys
 
 type dest = Tail | NonTail of Id.t
@@ -453,6 +450,11 @@ let rd a =
   | Flw (x, _, _) -> [ x ]
   | Feq (x, _, _) -> [ x ]
   | Fle (x, _, _) -> [ x ]
+  | Flt (x, _, _) -> [ x ]
+  | IntOfFloat (x, _) -> [ x ]
+  | FloatOfInt (x, _) -> [ x ]
+  | Fabs (x, _) -> [ x ]
+  | Floor (x, _) -> [ x ]
   | _ -> []
 
 let rs a =
@@ -478,6 +480,11 @@ let rs a =
   | Fsw (x, _, z) -> [ x; z ]
   | Feq (_, y, z) -> [ y; z ]
   | Fle (_, y, z) -> [ y; z ]
+  | Flt (_, y, z) -> [ y; z ]
+  | IntOfFloat (_, y) -> [ y ]
+  | FloatOfInt (_, y) -> [ y ]
+  | Fabs (_, y) -> [ y ]
+  | Floor (_, y) -> [ y ]
   | _ -> []
 
 let rec intersect l1 l2 =
@@ -496,6 +503,7 @@ let is_depend a b =
   | Sw (_, _, _), Fsw (_, _, _)
   | Fsw (_, _, _), Sw (_, _, _) ->
       true
+  | Nop, _ | _, Nop -> false
   | _, _ ->
       let rd_a = rd a in
       let rd_b = rd b in
@@ -518,52 +526,52 @@ let rec del graph i =
   | [] -> []
 
 (* let list_sched blk =
-  let graph = ref [] in
-  (* (from, to) *)
-  let n = List.length blk in
-  for i = 0 to n - 1 do
-    for j = 0 to n - 1 do
-      if i < j then
-        let a = List.nth blk i in
-        let b = List.nth blk j in
-        if is_depend a b then graph := !graph @ [ (i, j) ] else ()
-      else ()
-    done
-  done;
-  let res = ref [] in
-  let isused = Array.make n false in
-  let b = ref false in
-  while List.length !res < n do
-    (try
-       for i = 0 to n - 1 do
-         match List.nth blk i with
-         | (Lw (_, _, _) | Flw (_, _, _))
-           when n_in !graph i = 0 && isused.(i) = false && !b = false ->
-             isused.(i) <- true;
-             b := true;
-             graph := del !graph i;
-             res := !res @ [ List.nth blk i ];
-             raise Selected
-         | _ -> ()
-       done
-     with Selected -> ());
-    (try
-       for i = 0 to n - 1 do
-         match List.nth blk i with
-         | Lw (_, _, _) | Flw (_, _, _) -> ()
-         | _ when n_in !graph i = 0 && isused.(i) = false && !b = false ->
-             isused.(i) <- true;
-             b := true;
-             graph := del !graph i;
-             res := !res @ [ List.nth blk i ];
-             raise Selected
-         | _ -> ()
-       done
-     with Selected -> ());
-    if !b = false then Format.eprintf "not proceed@.";
-    b := false
-  done;
-  !res *)
+   let graph = ref [] in
+   (* (from, to) *)
+   let n = List.length blk in
+   for i = 0 to n - 1 do
+     for j = 0 to n - 1 do
+       if i < j then
+         let a = List.nth blk i in
+         let b = List.nth blk j in
+         if is_depend a b then graph := !graph @ [ (i, j) ] else ()
+       else ()
+     done
+   done;
+   let res = ref [] in
+   let isused = Array.make n false in
+   let b = ref false in
+   while List.length !res < n do
+     (try
+        for i = 0 to n - 1 do
+          match List.nth blk i with
+          | (Lw (_, _, _) | Flw (_, _, _))
+            when n_in !graph i = 0 && isused.(i) = false && !b = false ->
+              isused.(i) <- true;
+              b := true;
+              graph := del !graph i;
+              res := !res @ [ List.nth blk i ];
+              raise Selected
+          | _ -> ()
+        done
+      with Selected -> ());
+     (try
+        for i = 0 to n - 1 do
+          match List.nth blk i with
+          | Lw (_, _, _) | Flw (_, _, _) -> ()
+          | _ when n_in !graph i = 0 && isused.(i) = false && !b = false ->
+              isused.(i) <- true;
+              b := true;
+              graph := del !graph i;
+              res := !res @ [ List.nth blk i ];
+              raise Selected
+          | _ -> ()
+        done
+      with Selected -> ());
+     if !b = false then Format.eprintf "not proceed@.";
+     b := false
+   done;
+   !res *)
 
 let rec list_sched blk =
   let rec swap blk =
@@ -666,125 +674,109 @@ let rec optimize insns =
   (* insns *)
   sched insns []
 
-let rec print oc insns =
+let insn_typ insn =
+  match insn with
+  | Nop | Li _ | Fli _ | La _ | Add _ | Sub _ | Addi _ | Sll _ | Srl _ | Slli _
+  | Srli _ ->
+      (* ALU *) 1
+  | Fadd _ | Fsub _ | Fmul _ | Fdiv _ | Fmv _ | Fmvxw _ | Fmvwx _ | Fneg _
+  | Feq _ | Fle _ | Flt _ | IntOfFloat _ | FloatOfInt _ | Fabs _ | Floor _
+  | Sqrt _ ->
+      (* FPU *) 2
+  | Lw _ | Flw _ | Sw _ | Fsw _ -> (* memory *) 3
+  | Beq _ | Bne _ | Blt _ | Jump _ | Jalr _ | Jal _ -> (* branch *) 4
+  | Label _ -> (* label *) 5
+(* [1/4, 1/2, 3, 3] *)
+
+let print_unit oc insn =
+  match insn with
+  | Nop -> Printf.fprintf oc "nop; "
+  | Li (r1, i) -> Printf.fprintf oc "li %s, %d; " r1 i
+  | Fli (r1, f) -> Printf.fprintf oc "fli %s, %f; " r1 f
+  | La (r1, l) -> Printf.fprintf oc "la %s, %s; " r1 l
+  | Add (r1, r2, r3) -> Printf.fprintf oc "add %s, %s, %s; " r1 r2 r3
+  | Sub (r1, r2, r3) -> Printf.fprintf oc "sub %s, %s, %s; " r1 r2 r3
+  | Addi (r1, r2, i) -> Printf.fprintf oc "addi %s, %s, %d; " r1 r2 i
+  | Sll (r1, r2, r3) -> Printf.fprintf oc "sll %s, %s, %s; " r1 r2 r3
+  | Srl (r1, r2, r3) -> Printf.fprintf oc "srl %s, %s, %s; " r1 r2 r3
+  | Slli (r1, r2, i) -> Printf.fprintf oc "slli %s, %s, %d; " r1 r2 i
+  | Srli (r1, r2, i) -> Printf.fprintf oc "srli %s, %s, %d; " r1 r2 i
+  | Fadd (r1, r2, r3) -> Printf.fprintf oc "fadd %s, %s, %s; " r1 r2 r3
+  | Fsub (r1, r2, r3) -> Printf.fprintf oc "fsub %s, %s, %s; " r1 r2 r3
+  | Fmul (r1, r2, r3) -> Printf.fprintf oc "fmul %s, %s, %s; " r1 r2 r3
+  | Fdiv (r1, r2, r3) -> Printf.fprintf oc "fdiv %s, %s, %s; " r1 r2 r3
+  | Fmv (r1, r2) -> Printf.fprintf oc "fmv %s, %s; " r1 r2
+  | Fmvxw (r1, r2) -> Printf.fprintf oc "fmv.x.w %s, %s; " r1 r2
+  | Fmvwx (r1, r2) -> Printf.fprintf oc "fmv.w.x %s, %s; " r1 r2
+  | Fneg (r1, r2) -> Printf.fprintf oc "fneg %s, %s; " r1 r2
+  | Fabs (r1, r2) -> Printf.fprintf oc "fabs %s, %s; " r1 r2
+  | Floor (r1, r2) -> Printf.fprintf oc "floor %s, %s; " r1 r2
+  | Lw (r1, i, r2) -> Printf.fprintf oc "lw %s, %d(%s); " r1 i r2
+  | Flw (r1, i, r2) -> Printf.fprintf oc "flw %s, %d(%s); " r1 i r2
+  | Sw (r1, i, r2) -> Printf.fprintf oc "sw %s, %d(%s); " r1 i r2
+  | Fsw (r1, i, r2) -> Printf.fprintf oc "fsw %s, %d(%s); " r1 i r2
+  | Beq (r1, r2, l) -> Printf.fprintf oc "beq %s, %s, %s; " r1 r2 l
+  | Bne (r1, r2, l) -> Printf.fprintf oc "bne %s, %s, %s; " r1 r2 l
+  | Blt (r1, r2, l) -> Printf.fprintf oc "blt %s, %s, %s; " r1 r2 l
+  | Feq (r1, r2, r3) -> Printf.fprintf oc "feq %s, %s, %s; " r1 r2 r3
+  | Fle (r1, r2, r3) -> Printf.fprintf oc "fle %s, %s, %s; " r1 r2 r3
+  | Flt (r1, r2, r3) -> Printf.fprintf oc "flt %s, %s, %s; " r1 r2 r3
+  | IntOfFloat (r1, r2) -> Printf.fprintf oc "ftoi %s, %s; " r1 r2
+  | FloatOfInt (r1, r2) -> Printf.fprintf oc "itof %s, %s; " r1 r2
+  | Sqrt (r1, r2) -> Printf.fprintf oc "fsqrt %s, %s; " r1 r2
+  | Jump l -> Printf.fprintf oc "jump %s; " l
+  | Jalr (r1, r2, i) -> Printf.fprintf oc "jalr %s, %s, %d; " r1 r2 i
+  | Jal (r1, r2) -> Printf.fprintf oc "jal %s, %s; " r1 r2
+  | Label l -> Printf.fprintf oc "%s:\n" l
+
+let rec print_line oc tmp =
+  Printf.fprintf oc "\t";
+  print_unit oc tmp.(0);
+  print_unit oc tmp.(1);
+  print_unit oc tmp.(2);
+  print_unit oc tmp.(3);
+  Printf.fprintf oc "\n"
+
+let rec print oc insns tmp =
   match insns with
-  | cur :: rest -> (
-      match cur with
-      | Nop ->
-          Printf.fprintf oc "\tnop\n";
-          print oc rest
-      | Li (r1, i) ->
-          Printf.fprintf oc "\tli %s, %d\n" r1 i;
-          print oc rest
-      | Fli (r1, f) ->
-          Printf.fprintf oc "\tfli %s, %f\n" r1 f;
-          print oc rest
-      | La (r1, l) ->
-          Printf.fprintf oc "\tla %s, %s\n" r1 l;
-          print oc rest
-      | Add (r1, r2, r3) ->
-          Printf.fprintf oc "\tadd %s, %s, %s\n" r1 r2 r3;
-          print oc rest
-      | Sub (r1, r2, r3) ->
-          Printf.fprintf oc "\tsub %s, %s, %s\n" r1 r2 r3;
-          print oc rest
-      | Addi (r1, r2, i) ->
-          Printf.fprintf oc "\taddi %s, %s, %d\n" r1 r2 i;
-          print oc rest
-      | Sll (r1, r2, r3) ->
-          Printf.fprintf oc "\tsll %s, %s, %s\n" r1 r2 r3;
-          print oc rest
-      | Srl (r1, r2, r3) ->
-          Printf.fprintf oc "\tsrl %s, %s, %s\n" r1 r2 r3;
-          print oc rest
-      | Slli (r1, r2, i) ->
-          Printf.fprintf oc "\tslli %s, %s, %d\n" r1 r2 i;
-          print oc rest
-      | Srli (r1, r2, i) ->
-          Printf.fprintf oc "\tsrli %s, %s, %d\n" r1 r2 i;
-          print oc rest
-      | Fadd (r1, r2, r3) ->
-          Printf.fprintf oc "\tfadd %s, %s, %s\n" r1 r2 r3;
-          print oc rest
-      | Fsub (r1, r2, r3) ->
-          Printf.fprintf oc "\tfsub %s, %s, %s\n" r1 r2 r3;
-          print oc rest
-      | Fmul (r1, r2, r3) ->
-          Printf.fprintf oc "\tfmul %s, %s, %s\n" r1 r2 r3;
-          print oc rest
-      | Fdiv (r1, r2, r3) ->
-          Printf.fprintf oc "\tfdiv %s, %s, %s\n" r1 r2 r3;
-          print oc rest
-      | Fmv (r1, r2) ->
-          Printf.fprintf oc "\tfmv %s, %s\n" r1 r2;
-          print oc rest
-      | Fmvxw (r1, r2) ->
-          Printf.fprintf oc "\tfmv.x.w %s, %s\n" r1 r2;
-          print oc rest
-      | Fmvwx (r1, r2) ->
-          Printf.fprintf oc "\tfmv.w.x %s, %s\n" r1 r2;
-          print oc rest
-      | Fneg (r1, r2) ->
-          Printf.fprintf oc "\tfneg %s, %s\n" r1 r2;
-          print oc rest
-      | Fabs (r1, r2) ->
-          Printf.fprintf oc "\tfabs %s, %s\n" r1 r2;
-          print oc rest
-      | Floor (r1, r2) ->
-          Printf.fprintf oc "\tfloor %s, %s\n" r1 r2;
-          print oc rest
-      | Lw (r1, i, r2) ->
-          Printf.fprintf oc "\tlw %s, %d(%s)\n" r1 i r2;
-          print oc rest
-      | Flw (r1, i, r2) ->
-          Printf.fprintf oc "\tflw %s, %d(%s)\n" r1 i r2;
-          print oc rest
-      | Sw (r1, i, r2) ->
-          Printf.fprintf oc "\tsw %s, %d(%s)\n" r1 i r2;
-          print oc rest
-      | Fsw (r1, i, r2) ->
-          Printf.fprintf oc "\tfsw %s, %d(%s)\n" r1 i r2;
-          print oc rest
-      | Beq (r1, r2, l) ->
-          Printf.fprintf oc "\tbeq %s, %s, %s\n" r1 r2 l;
-          print oc rest
-      | Bne (r1, r2, l) ->
-          Printf.fprintf oc "\tbne %s, %s, %s\n" r1 r2 l;
-          print oc rest
-      | Blt (r1, r2, l) ->
-          Printf.fprintf oc "\tblt %s, %s, %s\n" r1 r2 l;
-          print oc rest
-      | Feq (r1, r2, r3) ->
-          Printf.fprintf oc "\tfeq %s, %s, %s\n" r1 r2 r3;
-          print oc rest
-      | Fle (r1, r2, r3) ->
-          Printf.fprintf oc "\tfle %s, %s, %s\n" r1 r2 r3;
-          print oc rest
-      | Flt (r1, r2, r3) ->
-          Printf.fprintf oc "\tflt %s, %s, %s\n" r1 r2 r3;
-          print oc rest
-      | IntOfFloat (r1, r2) ->
-          Printf.fprintf oc "\tftoi %s, %s\n" r1 r2;
-          print oc rest
-      | FloatOfInt (r1, r2) ->
-          Printf.fprintf oc "\titof %s, %s\n" r1 r2;
-          print oc rest
-      | Sqrt (r1, r2) ->
-          Printf.fprintf oc "\tfsqrt %s, %s\n" r1 r2;
-          print oc rest
-      | Jump l ->
-          Printf.fprintf oc "\tjump %s\n" l;
-          print oc rest
-      | Jalr (r1, r2, i) ->
-          Printf.fprintf oc "\tjalr %s, %s, %d\n" r1 r2 i;
-          print oc rest
-      | Jal (r1, r2) ->
-          Printf.fprintf oc "\tjal %s, %s\n" r1 r2;
-          print oc rest
-      | Label l ->
-          Printf.fprintf oc "%s:\n" l;
-          print oc rest)
-  | [] -> ()
+  | Label l :: rest ->
+      print_line oc tmp;
+      Printf.fprintf oc "%s:\n" l;
+      print oc rest [| Nop; Nop; Nop; Nop |]
+  | cur :: rest ->
+      let ty = insn_typ cur in
+      if ty = 4 then (
+        print_line oc tmp;
+        tmp.(0) <- cur;
+        (* if tmp.(0) is branch, others are after that *)
+        print oc rest tmp)
+      else
+        let depend =
+          is_depend tmp.(0) cur
+          || is_depend tmp.(1) cur
+          || is_depend tmp.(2) cur
+          || is_depend tmp.(3) cur
+          || (ty = 1 && tmp.(0) != Nop && tmp.(1) != Nop)
+          || (ty = 2 && tmp.(1) != Nop)
+          || (ty = 3 && tmp.(2) != Nop && tmp.(3) != Nop)
+        in
+        if depend then (
+          print_line oc tmp;
+          let tmp = [| Nop; Nop; Nop; Nop |] in
+          if ty = 1 then tmp.(0) <- cur
+          else if ty = 2 then tmp.(1) <- cur
+          else if ty = 3 then tmp.(2) <- cur
+          else assert false;
+          print oc rest tmp)
+        else (
+          if ty = 1 then
+            if tmp.(0) = Nop then tmp.(0) <- cur else tmp.(1) <- cur
+          else if ty = 2 then tmp.(1) <- cur
+          else if ty = 3 then
+            if tmp.(2) = Nop then tmp.(2) <- cur else tmp.(3) <- cur
+          else assert false;
+          print oc rest tmp)
+  | [] -> print_line oc tmp
 
 let print_all oc insns =
   Format.eprintf "generating assembly...@.";
@@ -803,4 +795,4 @@ let print_all oc insns =
   print_file "lib/float.s";
   print_file "lib/array.s";
   print_file "lib/tri.s";
-  print oc insns
+  print oc insns [| Nop; Nop; Nop; Nop |]
