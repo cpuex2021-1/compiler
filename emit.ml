@@ -758,21 +758,22 @@ let rec print oc insns tmp =
           || is_depend tmp.(2) cur
           || is_depend tmp.(3) cur
           || (ty = 1 && tmp.(0) != Nop && tmp.(1) != Nop)
-          || (ty = 2 && tmp.(1) != Nop)
+          || (ty = 2 && tmp.(0) != Nop && tmp.(1) != Nop)
           || (ty = 3 && tmp.(2) != Nop && tmp.(3) != Nop)
         in
         if depend then (
           print_line oc tmp;
           let tmp = [| Nop; Nop; Nop; Nop |] in
           if ty = 1 then tmp.(0) <- cur
-          else if ty = 2 then tmp.(1) <- cur
+          else if ty = 2 then tmp.(0) <- cur
           else if ty = 3 then tmp.(2) <- cur
           else assert false;
           print oc rest tmp)
         else (
           if ty = 1 then
             if tmp.(0) = Nop then tmp.(0) <- cur else tmp.(1) <- cur
-          else if ty = 2 then tmp.(1) <- cur
+          else if ty = 2 then
+            if tmp.(0) = Nop then tmp.(0) <- cur else tmp.(1) <- cur
           else if ty = 3 then
             if tmp.(2) = Nop then tmp.(2) <- cur else tmp.(3) <- cur
           else assert false;
