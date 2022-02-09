@@ -700,9 +700,10 @@ let insn_typ insn =
   | Sqrt _ ->
       (* FPU *) 2
   | Lw _ | Flw _ | Sw _ | Fsw _ -> (* memory *) 3
-  | Beq _ | Bne _ | Blt _ | Jump _ | Jalr _ | Jal _ -> (* branch *) 4
-  | Label _ -> (* label *) 5
-(* [1/4, 1/2, 3, 3] *)
+  | Beq _ | Bne _ | Blt _ -> (* conditional branch *) 4
+  | Jump _ | Jalr _ | Jal _ -> (* unconditional branch *) 5
+  | Label _ -> (* label *) 6
+(* [1/4/5, 1/2, 3, 3] *)
 
 let print_unit oc insn =
   match insn with
@@ -762,11 +763,27 @@ let rec print oc insns tmp =
   | cur :: rest ->
       let ty = insn_typ cur in
       if ty = 4 then (
+        (* if tmp.(0) is _conditional_ branch,
+           others are _after_ that *)
         print_line oc tmp;
         let tmp = [| Nop; Nop; Nop; Nop |] in
         tmp.(0) <- cur;
-        (* if tmp.(0) is branch, others are after that *)
         print oc rest tmp)
+      else if ty = 5 then
+        (* if tmp.(0) is _unconditional_ branch,
+             others are _before_ that *)
+        if tmp.(0) = Nop then (
+          tmp.(0) <- cur;
+          print_line oc tmp;
+          let tmp = [| Nop; Nop; Nop; Nop |] in
+          print oc rest tmp)
+        else (
+          print_line oc tmp;
+          let tmp = [| Nop; Nop; Nop; Nop |] in
+          tmp.(0) <- cur;
+          print_line oc tmp;
+          let tmp = [| Nop; Nop; Nop; Nop |] in
+          print oc rest tmp)
       else
         let depend =
           is_depend_war tmp.(0) cur
