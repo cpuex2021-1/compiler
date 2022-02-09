@@ -702,7 +702,7 @@ let insn_typ insn =
   | Beq _ | Bne _ | Blt _ -> (* conditional branch *) 4
   | Jump _ | Jalr _ | Jal _ -> (* unconditional branch *) 5
   | Label _ -> (* label *) 6
-(* [1/4/5, 1/2, 3, 3] *)
+(* [1/2/4/5, 1/2, 3, 3] *)
 
 let print_unit oc insn =
   match insn with
@@ -796,16 +796,16 @@ let rec print oc insns tmp =
         if depend then (
           print_line oc tmp;
           let tmp = [| Nop; Nop; Nop; Nop |] in
-          if ty = 1 then tmp.(0) <- cur
-          else if ty = 2 then tmp.(0) <- cur
+          if ty = 1 then tmp.(1) <- cur
+          else if ty = 2 then tmp.(1) <- cur
           else if ty = 3 then tmp.(2) <- cur
           else assert false;
           print oc rest tmp)
         else (
           if ty = 1 then
-            if tmp.(0) = Nop then tmp.(0) <- cur else tmp.(1) <- cur
+            if tmp.(1) = Nop then tmp.(1) <- cur else tmp.(0) <- cur
           else if ty = 2 then
-            if tmp.(0) = Nop then tmp.(0) <- cur else tmp.(1) <- cur
+            if tmp.(1) = Nop then tmp.(1) <- cur else tmp.(0) <- cur
           else if ty = 3 then
             if tmp.(2) = Nop then tmp.(2) <- cur else tmp.(3) <- cur
           else assert false;
