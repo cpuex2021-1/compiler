@@ -22,7 +22,7 @@
 #     jalr zero, ra, 0
 fhalf:
     fli f1, 0.5; nop; nop; nop;
-    jalr zero, ra, 0; fmul f0, f0, f1; nop; nop;
+    ret; fmul f0, f0, f1; nop; nop;
 # floor:
 #     ftoi a0,f0
 #     itof f1,a0

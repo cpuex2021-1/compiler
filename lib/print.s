@@ -1,5 +1,5 @@
 print_char:
-	jalr zero, ra, 0; nop; sw a0, 0(zero); nop;
+	ret; nop; sw a0, 0(zero); nop;
 print_int:
 	li a1, 48; li a2, 48; nop; nop;
 	li a3, 48; li a4, 100; nop; nop;
@@ -17,4 +17,4 @@ print_int_l3:
 print_int_l4:
 	nop; nop; sw a1, 0(zero); nop;
 	nop; nop; sw a2, 0(zero); nop;
-	jalr zero, ra, 0; nop; sw a3, 0(zero); nop;
+	ret; nop; sw a3, 0(zero); nop;
