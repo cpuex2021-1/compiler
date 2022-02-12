@@ -15,5 +15,4 @@ read_float:
     slli a1, a1, 16; nop; nop; nop;
     add a0, a0, a1; nop; lw a1 , 0(zero); nop;
     slli a1, a1, 24; nop; nop; nop;
-    add a0, a0, a1; nop; nop; nop;
-    ret; fmv.w.x f0, a0; nop; nop;
+    ret; add f0, a0, a1; nop; nop;
