@@ -12,11 +12,13 @@ type t = exp list
 and exp =
   | Nop
   | Li of reg * int
-  | Fli of reg * float
-  | La of reg * label
+  | Lui_f of reg * float
+  | Lui_l of reg * label
   | Add of reg * reg * reg
   | Sub of reg * reg * reg
   | Addi of reg * reg * int
+  | Addi_f of reg * reg * float
+  | Addi_l of reg * reg * label
   | Sll of reg * reg * reg
   | Srl of reg * reg * reg
   | Slli of reg * reg * int
@@ -31,6 +33,7 @@ and exp =
   | Beq of reg * reg * label
   | Bne of reg * reg * label
   | Blt of reg * reg * label
+  | Bge of reg * reg * label
   | Feq of reg * reg * reg
   | Fle of reg * reg * reg
   | Flt of reg * reg * reg
@@ -100,8 +103,9 @@ and g' = function
   (* 末尾でなかったら計算結果をdestにセット *)
   | NonTail _, Nop -> ()
   | NonTail x, Set i -> insns := Li (x, i) :: !insns
-  | NonTail x, SetF f -> insns := Fli (x, f) :: !insns
-  | NonTail x, SetL (Id.L y) -> insns := La (x, y) :: !insns
+  | NonTail x, SetF f -> insns := Lui_f (x, f) :: Addi_f (x, x, f) :: !insns
+  | NonTail x, SetL (Id.L y) ->
+      insns := Lui_l (x, y) :: Addi_l (x, x, y) :: !insns
   | NonTail x, Mov y when x = y -> ()
   | NonTail x, Mov y -> insns := Add (x, y, "zero") :: !insns
   | NonTail x, Neg y ->
@@ -192,18 +196,18 @@ and g' = function
       if env_exists y !Sched.substitutes then
         let tmp = env_find y !Sched.substitutes in
         if tmp = "zero" then insns := Li (x, 0) :: !insns
-        else insns := Fli (x, 0.0) :: !insns
+        else insns := Addi (x, "fzero", 0) :: !insns
       else if y = "zero" then insns := Li (x, 0) :: !insns
-      else if y = "fzero" then insns := Fli (x, 0.0) :: !insns
+      else if y = "fzero" then insns := Addi (x, "fzero", 0) :: !insns
       else insns := Lw (x, offset y, reg_sp) :: !insns
   | NonTail x, Restore y ->
       assert (List.mem x allfregs);
       if env_exists y !Sched.substitutes then
         let tmp = env_find y !Sched.substitutes in
         if tmp = "zero" then insns := Li (x, 0) :: !insns
-        else insns := Fli (x, 0.0) :: !insns
+        else insns := Addi (x, "fzero", 0) :: !insns
       else if y = "zero" then insns := Li (x, 0) :: !insns
-      else if y = "fzero" then insns := Fli (x, 0.0) :: !insns
+      else if y = "fzero" then insns := Addi (x, "fzero", 0) :: !insns
       else insns := Lw (x, offset y, reg_sp) :: !insns
   (* 末尾だったら計算結果を第一レジスタにセットしてret *)
   | Tail, ((Nop | St _ | StDF _ | Comment _ | Save _) as exp) ->
@@ -240,7 +244,7 @@ and g' = function
       g (Tail, e2)
   | Tail, IfLE (x, y', e1, e2) ->
       let b_else = Id.genid "ble_else" in
-      insns := Blt (pp_id_or_imm y', x, b_else) :: !insns;
+      insns := Bge (x, pp_id_or_imm y', b_else) :: !insns;
       let stackset_back = !stackset in
       g (Tail, e1);
       insns := Label b_else :: !insns;
@@ -289,7 +293,7 @@ and g' = function
   | NonTail z, IfLE (x, y', e1, e2) ->
       let b_else = Id.genid "ble_else" in
       let b_cont = Id.genid "ble_cont" in
-      insns := Blt (pp_id_or_imm y', x, b_else) :: !insns;
+      insns := Bge (x, pp_id_or_imm y', b_else) :: !insns;
       let stackset_back = !stackset in
       g (NonTail z, e1);
       let stackset1 = !stackset in
@@ -418,11 +422,13 @@ let rec f (Prog (data, fundefs, e)) =
 let rd a =
   match a with
   | Li (x, _) -> [ x ]
-  | Fli (x, _) -> [ x ]
-  | La (x, _) -> [ x ]
+  | Lui_f (x, _) -> [ x ]
+  | Lui_l (x, _) -> [ x ]
   | Add (x, _, _) -> [ x ]
   | Sub (x, _, _) -> [ x ]
   | Addi (x, _, _) -> [ x ]
+  | Addi_f (x, _, _) -> [ x ]
+  | Addi_l (x, _, _) -> [ x ]
   | Sll (x, _, _) -> [ x ]
   | Srl (x, _, _) -> [ x ]
   | Slli (x, _, _) -> [ x ]
@@ -447,6 +453,8 @@ let rs a =
   | Add (_, y, z) -> [ y; z ]
   | Sub (_, y, z) -> [ y; z ]
   | Addi (_, y, _) -> [ y ]
+  | Addi_f (_, y, _) -> [ y ]
+  | Addi_l (_, y, _) -> [ y ]
   | Sll (_, y, z) -> [ y; z ]
   | Srl (_, y, z) -> [ y; z ]
   | Slli (_, y, _) -> [ y ]
@@ -594,6 +602,7 @@ let rec sched insns cur_blk =
       | Beq (_, _, _)
       | Bne (_, _, _)
       | Blt (_, _, _)
+      | Bge (_, _, _)
       | Jump _
       | Jumpr _
       | Call _
@@ -656,7 +665,7 @@ let rec optimize insns =
 
 let insn_typ insn =
   match insn with
-  | Nop | Li _ | Fli _ | La _ | Add _ | Sub _ | Addi _ | Sll _ | Srl _ | Slli _
+  | Nop | Li _ | Lui_f _ | Lui_l _ | Add _ | Sub _ | Addi _ | Addi_f _ | Addi_l _ | Sll _ | Srl _ | Slli _
   | Srli _ ->
       (* ALU *) 1
   | Fadd _ | Fsub _ | Fmul _ | Fdiv _ | Fneg _
@@ -664,20 +673,22 @@ let insn_typ insn =
   | Sqrt _ ->
       (* FPU *) 2
   | Lw _ | Sw _ -> (* memory *) 3
-  | Beq _ | Bne _ | Blt _ -> (* conditional branch *) 4
+  | Beq _ | Bne _  | Bge _ | Blt _ -> (* conditional branch *) 4
   | Jump _ | Jumpr _ | Call _  | Callr _ | Ret -> (* unconditional branch *) 5
   | Label _ -> (* label *) 6
 (* [1/2/4/5, 1/2, 3, 3] *)
 
 let print_unit oc insn =
   match insn with
+  | Li (r1, i) -> Printf.fprintf oc "addi %s, zero, %d; " r1 i
   | Nop -> Printf.fprintf oc "nop; "
-  | Li (r1, i) -> Printf.fprintf oc "li %s, %d; " r1 i
-  | Fli (r1, f) -> Printf.fprintf oc "fli %s, %f; " r1 f
-  | La (r1, l) -> Printf.fprintf oc "la %s, %s; " r1 l
+  | Lui_f (r1, f) -> Printf.fprintf oc "lui.float %s, %f; " r1 f
+  | Lui_l (r1, l) -> Printf.fprintf oc "lui.label %s, %s; " r1 l
   | Add (r1, r2, r3) -> Printf.fprintf oc "add %s, %s, %s; " r1 r2 r3
   | Sub (r1, r2, r3) -> Printf.fprintf oc "sub %s, %s, %s; " r1 r2 r3
   | Addi (r1, r2, i) -> Printf.fprintf oc "addi %s, %s, %d; " r1 r2 i
+  | Addi_f (r1, r2, f) -> Printf.fprintf oc "addi.float %s, %s, %f; " r1 r2 f
+  | Addi_l (r1, r2, l) -> Printf.fprintf oc "addi.label %s, %s, %s; " r1 r2 l
   | Sll (r1, r2, r3) -> Printf.fprintf oc "sll %s, %s, %s; " r1 r2 r3
   | Srl (r1, r2, r3) -> Printf.fprintf oc "srl %s, %s, %s; " r1 r2 r3
   | Slli (r1, r2, i) -> Printf.fprintf oc "slli %s, %s, %d; " r1 r2 i
@@ -693,6 +704,7 @@ let print_unit oc insn =
   | Sw (r1, i, r2) -> Printf.fprintf oc "sw %s, %d(%s); " r1 i r2
   | Beq (r1, r2, l) -> Printf.fprintf oc "beq %s, %s, %s; " r1 r2 l
   | Bne (r1, r2, l) -> Printf.fprintf oc "bne %s, %s, %s; " r1 r2 l
+  | Bge (r1, r2, l) -> Printf.fprintf oc "bge %s, %s, %s; " r1 r2 l
   | Blt (r1, r2, l) -> Printf.fprintf oc "blt %s, %s, %s; " r1 r2 l
   | Feq (r1, r2, r3) -> Printf.fprintf oc "feq %s, %s, %s; " r1 r2 r3
   | Fle (r1, r2, r3) -> Printf.fprintf oc "fle %s, %s, %s; " r1 r2 r3
@@ -776,7 +788,7 @@ let rec print oc insns tmp =
 
 let print_all oc insns =
   Format.eprintf "generating assembly...@.";
-  Printf.fprintf oc "\tli hp, %d\n" !Normalize.hp_init;
+  (* Printf.fprintf oc "\tli hp, %d\n" !Normalize.hp_init; *)
   Printf.fprintf oc "\tjump min_caml_start\n";
   let print_file filename =
     let chan = open_in filename in

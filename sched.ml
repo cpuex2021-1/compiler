@@ -80,6 +80,18 @@ let rec constfold_g' e env =
       let yi = findi y env in
       if xi = yi then IfEq ("zero", C 0, constfold_g e1 env, Ans Nop)
       else IfEq ("zero", C 0, constfold_g e2 env, Ans Nop)
+  | IfEq (x, V y, e1, e2) when env_exists x env ->
+      print_endline x;
+      let xi = findi x env in
+      if -16 < xi && xi < 16 then
+        IfEq (y, C xi, constfold_g e1 env, constfold_g e2 env)
+      else IfEq (x, V y, constfold_g e1 env, constfold_g e2 env)
+  | IfEq (x, V y, e1, e2) when env_exists y env ->
+      print_endline y;
+      let yi = findi y env in
+      if -16 < yi && yi < 16 then
+        IfEq (x, C yi, constfold_g e1 env, constfold_g e2 env)
+      else IfEq (x, V y, constfold_g e1 env, constfold_g e2 env)
   | IfEq (x, C yi, e1, e2) when env_exists x env ->
       let xi = findi x env in
       if xi = yi then IfEq ("zero", C 0, constfold_g e1 env, Ans Nop)
@@ -89,6 +101,20 @@ let rec constfold_g' e env =
       let yi = findi y env in
       if xi <= yi then IfEq ("zero", C 0, constfold_g e1 env, Ans Nop)
       else IfEq ("zero", C 0, constfold_g e2 env, Ans Nop)
+  | IfLE (x, V y, e1, e2) when env_exists x env ->
+      (* if x <= y then e1 else e2 *)
+      (* if y < x then e2 else e1 *)
+      (* if y <= x-1 then e2 else e1 *)
+      print_endline x;
+      let xi = findi x env in
+      if -15 < xi && xi < 16 then
+        IfLE (y, C (xi - 1), constfold_g e2 env, constfold_g e1 env)
+      else IfLE (x, V y, constfold_g e1 env, constfold_g e2 env)
+  | IfLE (x, V y, e1, e2) when env_exists y env ->
+      print_endline y;
+      let yi = findi y env in
+      if -16 < yi && yi < 16 then IfLE (x, C yi, e1, e2)
+      else IfLE (x, V y, constfold_g e1 env, constfold_g e2 env)
   | IfLE (x, C yi, e1, e2) when env_exists x env ->
       let xi = findi x env in
       if xi <= yi then IfEq ("zero", C 0, constfold_g e1 env, Ans Nop)
@@ -98,6 +124,21 @@ let rec constfold_g' e env =
       let yi = findi y env in
       if xi >= yi then IfEq ("zero", C 0, constfold_g e1 env, Ans Nop)
       else IfEq ("zero", C 0, constfold_g e2 env, Ans Nop)
+  | IfGE (x, V y, e1, e2) when env_exists x env ->
+      (* if x >= y then e1 else e2 *)
+      (* if y > x then e2 else e1 *)
+      (* if y >= x+1 then e2 else e1 *)
+      print_endline x;
+      let xi = findi x env in
+      if -16 < xi && xi < 15 then
+        IfGE (x, C (xi + 1), constfold_g e2 env, constfold_g e1 env)
+      else IfGE (x, V y, constfold_g e1 env, constfold_g e2 env)
+  | IfGE (x, V y, e1, e2) when env_exists y env ->
+      print_endline y;
+      let yi = findi y env in
+      if -16 < yi && yi < 16 then
+        IfGE (x, C yi, constfold_g e1 env, constfold_g e2 env)
+      else IfGE (x, V y, constfold_g e1 env, constfold_g e2 env)
   | IfGE (x, C yi, e1, e2) when env_exists x env ->
       let xi = findi x env in
       if xi >= yi then IfEq ("zero", C 0, constfold_g e1 env, Ans Nop)
@@ -498,6 +539,7 @@ let rec f e n =
     let e' = elim e' in
     let e' = peephole e' in
     let e' = constreg e' in
+    let e' = constfold e' in
     (* let e' = elim_unused e' in *)
     Printf.eprintf "eliminated asm counter %d\n" !elim_count;
     Printf.eprintf "peephole optimization counter %d\n" !opt_count;
