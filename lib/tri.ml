@@ -22,7 +22,7 @@ let rec pi4div2 x =
   else ((3.141592653 *. 2.) -. x, -1.)
 in
 
-let rec tailor_cos y =
+let rec tailor_cos1 y =
   let xx = y *. y in
   let t2 = fhalf xx in
   let t4 = xx *. t2 *. 0.08333333333 in
@@ -33,17 +33,17 @@ let rec tailor_cos y =
   1. -. t2 +. t4 -. t6 +. t8 -. t10 +. t12
 in
 
-let rec cos x =
+let rec cos1 x =
   let (a, b) = pi4div (pi_div x (3.141592653 *. 2.)) in
-  b *. tailor_cos a
+  b *. tailor_cos1 a
 in
 
-let rec sin x =
+let rec sin1 x =
   let (a, b) = pi4div2 (pi_div x (3.141592653 *. 2.)) in
-  b *. tailor_cos ((3.141592653 /. 2.) -. a)
+  b *. tailor_cos1 ((3.141592653 /. 2.) -. a)
 in
 
-let rec tailor_atan y =
+let rec tailor_atan1 y =
   let xx = y *. y in
   let t3 = xx *. y *. 0.33333333333 in
   let t5 = xx *. t3 *. 0.6 in
@@ -53,11 +53,11 @@ let rec tailor_atan y =
   y -. t3 +. t5 -. t7 +. t9 -. t11
 in
 
-let rec atan y =
-  if y < 0. then -.atan (-.y)
-  else if y > 1. then (3.141592653 /. 2.) -. atan (1. /. y)
-  else if y > 0.41421356 then (3.141592653 /. 4.) +. atan ((y -. 1.) /. (1. +. y))
-  else tailor_atan y
+let rec atan1 y =
+  if y < 0. then -.atan1 (-.y)
+  else if y > 1. then (3.141592653 /. 2.) -. atan1 (1. /. y)
+  else if y > 0.41421356 then (3.141592653 /. 4.) +. atan1 ((y -. 1.) /. (1. +. y))
+  else tailor_atan1 y
 in
 
-print_int (sin (0. -. 1.01))
+print_int (sin1 (0. -. 1.01))

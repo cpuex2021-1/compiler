@@ -716,7 +716,7 @@ let print_unit oc insn =
   | Jumpr r1 -> Printf.fprintf oc "jumpr %s; " r1 
   | Call l -> Printf.fprintf oc "call %s; " l
   | Callr r1 -> Printf.fprintf oc "callr %s; " r1
-  | Ret -> Printf.fprintf oc "ret"
+  | Ret -> Printf.fprintf oc "ret; "
   | Label l -> Printf.fprintf oc "%s:\n" l
 
 let rec print_line oc tmp =
