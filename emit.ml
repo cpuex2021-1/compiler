@@ -25,14 +25,9 @@ and exp =
   | Fsub of reg * reg * reg
   | Fmul of reg * reg * reg
   | Fdiv of reg * reg * reg
-  | Fmv of reg * reg
-  | Fmvxw of reg * reg
-  | Fmvwx of reg * reg
   | Fneg of reg * reg
   | Lw of reg * int * reg
-  | Flw of reg * int * reg
   | Sw of reg * int * reg
-  | Fsw of reg * int * reg
   | Beq of reg * reg * label
   | Bne of reg * reg * label
   | Blt of reg * reg * label
@@ -45,8 +40,10 @@ and exp =
   | Floor of reg * reg
   | Sqrt of reg * reg
   | Jump of label
-  | Jalr of reg * reg * int
-  | Jal of reg * reg
+  | Jumpr of reg
+  | Call of label
+  | Callr of reg
+  | Ret
   | Label of label
 
 let insns = ref []
@@ -111,11 +108,9 @@ and g' = function
       if List.mem x allregs && List.mem y allregs then
         insns := Sub (x, "zero", y) :: !insns
       else if List.mem x allregs then (
-        insns := Fmvxw (x, y) :: !insns;
-        insns := Sub (x, "zero", x) :: !insns)
+        insns := Sub (x, "zero", y) :: !insns)
       else if List.mem y allregs then (
-        insns := Fmvwx (x, y) :: !insns;
-        insns := Fneg (x, x) :: !insns)
+        insns := Fneg (x, y) :: !insns)
       else insns := Fneg (x, y) :: !insns
   | NonTail x, Add (y, z') -> (
       match z' with
@@ -137,19 +132,15 @@ and g' = function
       match z' with
       | V id ->
           insns := Add ("a22", id, y) :: !insns;
-          if List.mem x allregs then insns := Lw (x, 0, "a22") :: !insns
-          else insns := Flw (x, 0, "a22") :: !insns
+          insns := Lw (x, 0, "a22") :: !insns
       | C i -> insns := Lw (x, i, y) :: !insns)
   | NonTail _, St (x, y, z') -> (
       match z' with
       | V id ->
           insns := Add ("a22", id, y) :: !insns;
-          if List.mem x allregs then insns := Sw (x, 0, "a22") :: !insns
-          else insns := Fsw (x, 0, "a22") :: !insns
+          insns := Sw (x, 0, "a22") :: !insns
       | C i -> insns := Sw (x, i, y) :: !insns)
   | NonTail x, FMovD y when x = y -> ()
-  | NonTail x, FMovD y when List.mem x allregs ->
-      insns := Fmvxw (x, y) :: !insns
   | NonTail x, FMovD y -> insns := Fadd (x, y, "fzero") :: !insns
   | NonTail x, FNegD y -> insns := Fneg (x, y) :: !insns
   | NonTail x, FAddD (y, z) -> insns := Fadd (x, y, z) :: !insns
@@ -171,16 +162,14 @@ and g' = function
       match z' with
       | V id ->
           insns := Add ("a22", id, y) :: !insns;
-          if List.mem x allregs then insns := Lw (x, 0, "a22") :: !insns
-          else insns := Flw (x, 0, "a22") :: !insns
-      | C i -> insns := Flw (x, i, y) :: !insns)
+          insns := Lw (x, 0, "a22") :: !insns
+      | C i -> insns := Lw (x, i, y) :: !insns)
   | NonTail _, StDF (x, y, z') -> (
       match z' with
       | V id ->
           insns := Add ("a22", id, y) :: !insns;
-          if List.mem x allregs then insns := Sw (x, 0, "a22") :: !insns
-          else insns := Fsw (x, 0, "a22") :: !insns
-      | C i -> insns := Fsw (x, i, y) :: !insns)
+          insns := Sw (x, 0, "a22") :: !insns
+      | C i -> insns := Sw (x, i, y) :: !insns)
   | NonTail _, Comment s -> ()
   (* 退避の仮想命令の実装 *)
   | NonTail _, Save (x, y)
@@ -194,7 +183,7 @@ and g' = function
       if y = "zero" || y = "fzero" || env_exists y !Sched.substitutes then ()
       else (
         save y;
-        insns := Fsw (x, offset y, reg_sp) :: !insns)
+        insns := Sw (x, offset y, reg_sp) :: !insns)
   | NonTail _, Save (x, y) ->
       assert (set_exist y !stackset);
       ()
@@ -215,32 +204,32 @@ and g' = function
         else insns := Fli (x, 0.0) :: !insns
       else if y = "zero" then insns := Li (x, 0) :: !insns
       else if y = "fzero" then insns := Fli (x, 0.0) :: !insns
-      else insns := Flw (x, offset y, reg_sp) :: !insns
+      else insns := Lw (x, offset y, reg_sp) :: !insns
   (* 末尾だったら計算結果を第一レジスタにセットしてret *)
   | Tail, ((Nop | St _ | StDF _ | Comment _ | Save _) as exp) ->
       g' (NonTail (Id.gentmp Type.Unit), exp);
-      insns := Jalr ("zero", "ra", 0) :: !insns
+      insns := Ret :: !insns
   | ( Tail,
       (( Set _ | SetL _ | Mov _ | Add _ | Sub _ | SLL _ | SRL _ | Ld _
        | Fiszero _ | Fispos _ | Fisneg _ | Fless _ | IntOfFloat _ ) as exp) ) ->
       g' (NonTail regs.(0), exp);
-      insns := Jalr ("zero", "ra", 0) :: !insns
+      insns := Ret :: !insns
   | Tail, (Neg x as exp) ->
       if List.mem x allregs then g' (NonTail regs.(0), exp)
       else g' (NonTail fregs.(0), exp);
-      insns := Jalr ("zero", "ra", 0) :: !insns
+      insns := Ret :: !insns
   | ( Tail,
       (( SetF _ | FMovD _ | FNegD _ | FAddD _ | FSubD _ | FMulD _ | FDivD _
        | LdDF _ | Fneg _ | Fabs _ | Floor _ | FloatOfInt _ | Sqrt _ | Fsqr _ )
       as exp) ) ->
       g' (NonTail fregs.(0), exp);
-      insns := Jalr ("zero", "ra", 0) :: !insns
+      insns := Ret :: !insns
   | Tail, (Restore x as exp) ->
       (match locate x with
       | [ i ] -> g' (NonTail regs.(0), exp)
       | [ i; j ] when i + 1 = j -> g' (NonTail fregs.(0), exp)
       | _ -> assert false);
-      insns := Jalr ("zero", "ra", 0) :: !insns
+      insns := Ret :: !insns
   | Tail, IfEq (x, y', e1, e2) ->
       let b_else = Id.genid "be_else" in
       insns := Bne (x, pp_id_or_imm y', b_else) :: !insns;
@@ -360,7 +349,7 @@ and g' = function
       (* 末尾呼び出し *)
       g'_args [ (x, reg_cl) ] ys zs;
       insns := Lw (reg_sw, 0, reg_cl) :: !insns;
-      insns := Jalr ("zero", reg_sw, 0) :: !insns
+      insns := Jumpr (reg_sw) :: !insns
   | Tail, CallDir (Id.L x, ys, zs) ->
       (* 末尾呼び出し *)
       g'_args [] ys zs;
@@ -368,12 +357,12 @@ and g' = function
   | NonTail a, CallCls (x, ys, zs) ->
       g'_args [ (x, reg_cl) ] ys zs;
       let ss = stacksize () in
-      insns := Sw (reg_ra, -ss, reg_sp) :: !insns;
+      (*insns := Sw (reg_ra, -ss, reg_sp) :: !insns;*)
       insns := Lw (reg_sw, 0, reg_cl) :: !insns;
       insns := Addi (reg_sp, reg_sp, (-1 * ss) - 1) :: !insns;
-      insns := Jalr ("ra", reg_sw, 0) :: !insns;
+      insns := Callr (reg_sw) :: !insns;
       insns := Addi (reg_sp, reg_sp, ss + 1) :: !insns;
-      insns := Lw (reg_ra, -ss, reg_sp) :: !insns;
+      (*insns := Lw (reg_ra, -ss, reg_sp) :: !insns;*)
       if List.mem a allregs && a <> regs.(0) then
         insns := Add (a, regs.(0), "zero") :: !insns
       else if List.mem a allfregs && a <> fregs.(0) then
@@ -381,11 +370,11 @@ and g' = function
   | NonTail a, CallDir (Id.L x, ys, zs) ->
       g'_args [] ys zs;
       let ss = stacksize () in
-      insns := Sw (reg_ra, -ss, reg_sp) :: !insns;
+      (*insns := Sw (reg_ra, -ss, reg_sp) :: !insns;*)
       insns := Addi (reg_sp, reg_sp, (-1 * ss) - 1) :: !insns;
-      insns := Jal ("ra", x) :: !insns;
+      insns := Call (x) :: !insns;
       insns := Addi (reg_sp, reg_sp, ss + 1) :: !insns;
-      insns := Lw (reg_ra, -ss, reg_sp) :: !insns;
+      (*insns := Lw (reg_ra, -ss, reg_sp) :: !insns;*)
       if List.mem a allregs && a <> regs.(0) then
         insns := Add (a, regs.(0), "zero") :: !insns
       else if List.mem a allfregs && a <> fregs.(0) then
@@ -406,7 +395,7 @@ and g'_args x_reg_cl ys zs =
       (0, []) zs
   in
   List.iter
-    (fun (z, fr) -> insns := Fmv (fr, z) :: !insns)
+    (fun (z, fr) -> insns := Add (fr, z, "zero") :: !insns)
     (shuffle reg_fsw zfrs)
 
 let h { name = Id.L x; args = _; fargs = _; body = e; ret = _ } =
@@ -423,7 +412,7 @@ let rec f (Prog (data, fundefs, e)) =
   stackset := [];
   stackmap := [];
   g (NonTail "a0", e);
-  insns := Jalr ("zero", "ra", 0) :: !insns;
+  insns := Ret :: !insns;
   List.rev !insns
 
 let rd a =
@@ -442,12 +431,8 @@ let rd a =
   | Fsub (x, _, _) -> [ x ]
   | Fmul (x, _, _) -> [ x ]
   | Fdiv (x, _, _) -> [ x ]
-  | Fmv (x, _) -> [ x ]
-  | Fmvxw (x, _) -> [ x ]
-  | Fmvwx (x, _) -> [ x ]
   | Fneg (x, _) -> [ x ]
   | Lw (x, _, _) -> [ x ]
-  | Flw (x, _, _) -> [ x ]
   | Feq (x, _, _) -> [ x ]
   | Fle (x, _, _) -> [ x ]
   | Flt (x, _, _) -> [ x ]
@@ -470,14 +455,9 @@ let rs a =
   | Fsub (_, y, z) -> [ y; z ]
   | Fmul (_, y, z) -> [ y; z ]
   | Fdiv (_, y, z) -> [ y; z ]
-  | Fmv (_, y) -> [ y ]
-  | Fmvxw (_, y) -> [ y ]
-  | Fmvwx (_, y) -> [ y ]
   | Fneg (_, y) -> [ y ]
   | Lw (_, _, z) -> [ z ]
-  | Flw (_, _, z) -> [ z ]
   | Sw (x, _, z) -> [ x; z ]
-  | Fsw (x, _, z) -> [ x; z ]
   | Feq (_, y, z) -> [ y; z ]
   | Fle (_, y, z) -> [ y; z ]
   | Flt (_, y, z) -> [ y; z ]
@@ -498,10 +478,7 @@ let rec intersect l1 l2 =
 
 let is_depend a b =
   match (a, b) with
-  | Sw (_, _, _), Sw (_, _, _)
-  | Fsw (_, _, _), Fsw (_, _, _)
-  | Sw (_, _, _), Fsw (_, _, _)
-  | Fsw (_, _, _), Sw (_, _, _) ->
+  | Sw (_, _, _), Sw (_, _, _)->
       true
   | Nop, _ | _, Nop -> false
   | _, _ ->
@@ -596,7 +573,7 @@ let rec list_sched blk =
     | a :: rest -> (
         let b = List.hd rest in
         match b with
-        | Lw _ | Flw _ ->
+        | Lw _ ->
             if is_depend a b then a :: swap rest
             else b :: swap (a :: List.tl rest)
         | _ -> a :: swap rest)
@@ -618,8 +595,10 @@ let rec sched insns cur_blk =
       | Bne (_, _, _)
       | Blt (_, _, _)
       | Jump _
-      | Jalr (_, _, _)
-      | Jal (_, _)
+      | Jumpr _
+      | Call _
+      | Callr _
+      | Ret
       | Label _ ->
           let blk = list_sched cur_blk in
           blk @ [ hd ] @ sched rest []
@@ -655,23 +634,9 @@ let rec optimize insns =
                     cur :: replace (List.tl rest)
                   else default ()
               | _ -> default ())
-          | Flw (lx, li, ly) -> (
-              match List.hd rest with
-              | Fsw (sx, si, sy) ->
-                  if lx = sx && li = si && ly = sy then
-                    cur :: replace (List.tl rest)
-                  else default ()
-              | _ -> default ())
           | Sw (lx, li, ly) -> (
               match List.hd rest with
               | Lw (sx, si, sy) ->
-                  if lx = sx && li = si && ly = sy then
-                    cur :: replace (List.tl rest)
-                  else default ()
-              | _ -> default ())
-          | Fsw (lx, li, ly) -> (
-              match List.hd rest with
-              | Flw (sx, si, sy) ->
                   if lx = sx && li = si && ly = sy then
                     cur :: replace (List.tl rest)
                   else default ()
@@ -694,13 +659,13 @@ let insn_typ insn =
   | Nop | Li _ | Fli _ | La _ | Add _ | Sub _ | Addi _ | Sll _ | Srl _ | Slli _
   | Srli _ ->
       (* ALU *) 1
-  | Fadd _ | Fsub _ | Fmul _ | Fdiv _ | Fmv _ | Fmvxw _ | Fmvwx _ | Fneg _
+  | Fadd _ | Fsub _ | Fmul _ | Fdiv _ | Fneg _
   | Feq _ | Fle _ | Flt _ | IntOfFloat _ | FloatOfInt _ | Fabs _ | Floor _
   | Sqrt _ ->
       (* FPU *) 2
-  | Lw _ | Flw _ | Sw _ | Fsw _ -> (* memory *) 3
+  | Lw _ | Sw _ -> (* memory *) 3
   | Beq _ | Bne _ | Blt _ -> (* conditional branch *) 4
-  | Jump _ | Jalr _ | Jal _ -> (* unconditional branch *) 5
+  | Jump _ | Jumpr _ | Call _  | Callr _ | Ret -> (* unconditional branch *) 5
   | Label _ -> (* label *) 6
 (* [1/2/4/5, 1/2, 3, 3] *)
 
@@ -721,16 +686,11 @@ let print_unit oc insn =
   | Fsub (r1, r2, r3) -> Printf.fprintf oc "fsub %s, %s, %s; " r1 r2 r3
   | Fmul (r1, r2, r3) -> Printf.fprintf oc "fmul %s, %s, %s; " r1 r2 r3
   | Fdiv (r1, r2, r3) -> Printf.fprintf oc "fdiv %s, %s, %s; " r1 r2 r3
-  | Fmv (r1, r2) -> Printf.fprintf oc "fmv %s, %s; " r1 r2
-  | Fmvxw (r1, r2) -> Printf.fprintf oc "fmv.x.w %s, %s; " r1 r2
-  | Fmvwx (r1, r2) -> Printf.fprintf oc "fmv.w.x %s, %s; " r1 r2
   | Fneg (r1, r2) -> Printf.fprintf oc "fneg %s, %s; " r1 r2
   | Fabs (r1, r2) -> Printf.fprintf oc "fabs %s, %s; " r1 r2
   | Floor (r1, r2) -> Printf.fprintf oc "floor %s, %s; " r1 r2
   | Lw (r1, i, r2) -> Printf.fprintf oc "lw %s, %d(%s); " r1 i r2
-  | Flw (r1, i, r2) -> Printf.fprintf oc "flw %s, %d(%s); " r1 i r2
   | Sw (r1, i, r2) -> Printf.fprintf oc "sw %s, %d(%s); " r1 i r2
-  | Fsw (r1, i, r2) -> Printf.fprintf oc "fsw %s, %d(%s); " r1 i r2
   | Beq (r1, r2, l) -> Printf.fprintf oc "beq %s, %s, %s; " r1 r2 l
   | Bne (r1, r2, l) -> Printf.fprintf oc "bne %s, %s, %s; " r1 r2 l
   | Blt (r1, r2, l) -> Printf.fprintf oc "blt %s, %s, %s; " r1 r2 l
@@ -741,8 +701,10 @@ let print_unit oc insn =
   | FloatOfInt (r1, r2) -> Printf.fprintf oc "itof %s, %s; " r1 r2
   | Sqrt (r1, r2) -> Printf.fprintf oc "fsqrt %s, %s; " r1 r2
   | Jump l -> Printf.fprintf oc "jump %s; " l
-  | Jalr (r1, r2, i) -> Printf.fprintf oc "jalr %s, %s, %d; " r1 r2 i
-  | Jal (r1, r2) -> Printf.fprintf oc "jal %s, %s; " r1 r2
+  | Jumpr r1 -> Printf.fprintf oc "jumpr %s; " r1 
+  | Call l -> Printf.fprintf oc "call %s; " l
+  | Callr r1 -> Printf.fprintf oc "callr %s; " r1
+  | Ret -> Printf.fprintf oc "ret"
   | Label l -> Printf.fprintf oc "%s:\n" l
 
 let rec print_line oc tmp =
