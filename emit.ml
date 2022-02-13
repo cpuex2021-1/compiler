@@ -508,7 +508,7 @@ let is_depend a b =
       || intersect rd_a rd_b
 (* WAW *)
 
-let is_depend_raw a b =
+let is_depend_raw_waw a b =
   match (a, b) with
   (* we suppose here that no two adjacent
      store instructions are about the same address *)
@@ -520,8 +520,10 @@ let is_depend_raw a b =
   | Nop, _ | _, Nop -> false
   | _, _ ->
       let rd_a = rd a in
+      let rd_b = rd b in
+      let rs_a = rs a in
       let rs_b = rs b in
-      intersect rd_a rs_b
+      intersect rd_a rs_b || intersect rd_a rd_b
 
 let rec n_in graph i =
   match graph with
@@ -758,10 +760,10 @@ let rec print oc insns tmp =
           print oc rest tmp)
       else
         let depend =
-          is_depend_raw tmp.(0) cur
-          || is_depend_raw tmp.(1) cur
-          || is_depend_raw tmp.(2) cur
-          || is_depend_raw tmp.(3) cur
+          is_depend_raw_waw tmp.(0) cur
+          || is_depend_raw_waw tmp.(1) cur
+          || is_depend_raw_waw tmp.(2) cur
+          || is_depend_raw_waw tmp.(3) cur
           || (ty = 1 && tmp.(0) != Nop && tmp.(1) != Nop)
           || (ty = 2 && tmp.(0) != Nop && tmp.(1) != Nop)
           || (ty = 3 && tmp.(2) != Nop && tmp.(3) != Nop)
