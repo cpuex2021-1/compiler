@@ -742,16 +742,8 @@ let rec print oc insns tmp =
       print oc rest [| Nop; Nop; Nop; Nop |]
   | cur :: rest ->
       let ty = insn_typ cur in
-      if ty = 4 then (
-        (* if tmp.(0) is _conditional_ branch,
-           others are _after_ that *)
-        print_line oc tmp;
-        let tmp = [| Nop; Nop; Nop; Nop |] in
-        tmp.(0) <- cur;
-        print oc rest tmp)
-      else if ty = 5 then
-        (* if tmp.(0) is _unconditional_ branch,
-             others are _before_ that *)
+      if ty = 4 || ty = 5 then
+        (* if tmp.(0) is branch, others are _before_ that *)
         if tmp.(0) = Nop then (
           tmp.(0) <- cur;
           print_line oc tmp;
