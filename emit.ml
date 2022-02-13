@@ -476,6 +476,11 @@ let rs a =
   | Fneg (_, y) -> [ y ]
   | Lw (_, _, z) -> [ z ]
   | Sw (x, _, z) -> [ x; z ]
+  | Beq (x, y, _) -> [ x; y ]
+  | Bne (x, y, _) -> [ x; y ]
+  | Bnei (x, _, _) -> [ x ]
+  | Blt (x, y, _) -> [ x; y ]
+  | Bge (x, y, _) -> [ x; y ]
   | Feq (_, y, z) -> [ y; z ]
   | Fle (_, y, z) -> [ y; z ]
   | Flt (_, y, z) -> [ y; z ]
@@ -744,9 +749,18 @@ let rec print oc insns tmp =
       print oc rest [| Nop; Nop; Nop; Nop |]
   | cur :: rest ->
       let ty = insn_typ cur in
+      let depend =
+        is_depend_raw_waw tmp.(0) cur
+        || is_depend_raw_waw tmp.(1) cur
+        || is_depend_raw_waw tmp.(2) cur
+        || is_depend_raw_waw tmp.(3) cur
+        || (ty = 1 && tmp.(0) != Nop && tmp.(1) != Nop)
+        || (ty = 2 && tmp.(0) != Nop && tmp.(1) != Nop)
+        || (ty = 3 && tmp.(2) != Nop && tmp.(3) != Nop)
+      in
       if ty = 4 || ty = 5 then
         (* if tmp.(0) is branch, others are _before_ that *)
-        if tmp.(0) = Nop then (
+        if tmp.(0) = Nop && depend = false then (
           tmp.(0) <- cur;
           print_line oc tmp;
           let tmp = [| Nop; Nop; Nop; Nop |] in
