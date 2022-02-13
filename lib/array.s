@@ -19,7 +19,7 @@ create_float_array_cont:
     jump create_float_array_loop; nop; sw f0, 0(a2); nop;
 create_float_array_exit:
     add a0, hp, zero; add hp, hp, a3; nop; nop;
-    ret; nop; nop; noop;
+    ret; nop; nop; nop;
 create_global_array: # a1-length array with value a2 @address a0
     addi a3, a0, 0; addi a0, a1, 0; nop; nop;
     addi a1, a2, 0; nop; nop; nop;
