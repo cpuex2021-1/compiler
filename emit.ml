@@ -12,11 +12,13 @@ type t = exp list
 and exp =
   | Nop
   | Li of reg * int
+  | Lui_i of reg * int
   | Lui_f of reg * float
   | Lui_l of reg * label
   | Add of reg * reg * reg
   | Sub of reg * reg * reg
   | Addi of reg * reg * int
+  | Addi_i of reg * reg * int
   | Addi_f of reg * reg * float
   | Addi_l of reg * reg * label
   | Sll of reg * reg * reg
@@ -103,7 +105,9 @@ and g' = function
   (* 各命令のアセンブリ生成 *)
   (* 末尾でなかったら計算結果をdestにセット *)
   | NonTail _, Nop -> ()
-  | NonTail x, Set i -> insns := Li (x, i) :: !insns
+  | NonTail x, Set i ->
+      if -8190 <= i && i <= 8191 then insns := Addi (x, x, i) :: !insns
+      else insns := Lui_i (x, i) :: Addi_i (x, x, i) :: !insns
   | NonTail x, SetF f -> insns := Lui_f (x, f) :: Addi_f (x, x, f) :: !insns
   | NonTail x, SetL (Id.L y) ->
       insns := Lui_l (x, y) :: Addi_l (x, x, y) :: !insns
@@ -425,11 +429,13 @@ let rec f (Prog (data, fundefs, e)) =
 let rd a =
   match a with
   | Li (x, _) -> [ x ]
+  | Lui_i (x, _) -> [ x ]
   | Lui_f (x, _) -> [ x ]
   | Lui_l (x, _) -> [ x ]
   | Add (x, _, _) -> [ x ]
   | Sub (x, _, _) -> [ x ]
   | Addi (x, _, _) -> [ x ]
+  | Addi_i (x, _, _) -> [ x ]
   | Addi_f (x, _, _) -> [ x ]
   | Addi_l (x, _, _) -> [ x ]
   | Sll (x, _, _) -> [ x ]
@@ -456,6 +462,7 @@ let rs a =
   | Add (_, y, z) -> [ y; z ]
   | Sub (_, y, z) -> [ y; z ]
   | Addi (_, y, _) -> [ y ]
+  | Addi_i (_, y, _) -> [ y ]
   | Addi_f (_, y, _) -> [ y ]
   | Addi_l (_, y, _) -> [ y ]
   | Sll (_, y, z) -> [ y; z ]
@@ -663,8 +670,8 @@ let rec optimize insns =
 
 let insn_typ insn =
   match insn with
-  | Nop | Li _ | Lui_f _ | Lui_l _ | Add _ | Sub _ | Addi _ | Addi_f _
-  | Addi_l _ | Sll _ | Srl _ | Slli _ | Srli _ ->
+  | Nop | Li _ | Lui_i _ | Lui_f _ | Lui_l _ | Add _ | Sub _ | Addi _ | Addi_i _
+  | Addi_f _ | Addi_l _ | Sll _ | Srl _ | Slli _ | Srli _ ->
       (* ALU *) 1
   | Fadd _ | Fsub _ | Fmul _ | Fdiv _ | Fneg _ | Feq _ | Fle _ | Flt _
   | IntOfFloat _ | FloatOfInt _ | Fabs _ | Floor _ | Sqrt _ ->
@@ -679,11 +686,13 @@ let print_unit oc insn =
   match insn with
   | Li (r1, i) -> Printf.fprintf oc "addi %s, zero, %d; " r1 i
   | Nop -> Printf.fprintf oc "nop; "
+  | Lui_i (r1, i) -> Printf.fprintf oc "lui.int %s, %d; " r1 i
   | Lui_f (r1, f) -> Printf.fprintf oc "lui.float %s, %f; " r1 f
   | Lui_l (r1, l) -> Printf.fprintf oc "lui.label %s, %s; " r1 l
   | Add (r1, r2, r3) -> Printf.fprintf oc "add %s, %s, %s; " r1 r2 r3
   | Sub (r1, r2, r3) -> Printf.fprintf oc "sub %s, %s, %s; " r1 r2 r3
   | Addi (r1, r2, i) -> Printf.fprintf oc "addi %s, %s, %d; " r1 r2 i
+  | Addi_i (r1, r2, i) -> Printf.fprintf oc "addi.int %s, %s, %d; " r1 r2 i
   | Addi_f (r1, r2, f) -> Printf.fprintf oc "addi.float %s, %s, %f; " r1 r2 f
   | Addi_l (r1, r2, l) -> Printf.fprintf oc "addi.label %s, %s, %s; " r1 r2 l
   | Sll (r1, r2, r3) -> Printf.fprintf oc "sll %s, %s, %s; " r1 r2 r3
