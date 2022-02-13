@@ -801,6 +801,13 @@ let rec print oc insns tmp =
           print oc rest tmp)
   | [] -> print_line oc tmp
 
+let print_no_vliw oc insns =
+  let print oc insn =
+    print_unit oc insn;
+    Printf.fprintf oc "\n"
+  in
+  List.iter (print oc) insns
+
 let print_all oc insns =
   Format.eprintf "generating assembly...@.";
   (* Printf.fprintf oc "\tli hp, %d\n" !Normalize.hp_init; *)

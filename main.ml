@@ -100,6 +100,11 @@ let compile in_channel out_channel =
 
   (* Emit.exp list -> output *)
   let final = Emit.optimize assembly in
+  if !verbose then (
+    let oc = open_out "output/98-asm-no-vliw.txt" in
+    Printf.fprintf oc "[Assembly without VLIW]\n";
+    Emit.print_no_vliw oc final);
+
   Emit.print_all out_channel final
 
 let file f =
