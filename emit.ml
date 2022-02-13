@@ -249,7 +249,7 @@ and g' = function
       g (Tail, e2)
   | Tail, IfLE (x, y', e1, e2) ->
       let b_else = Id.genid "ble_else" in
-      insns := Bge (x, pp_id_or_imm y', b_else) :: !insns;
+      insns := Blt (pp_id_or_imm y', x, b_else) :: !insns;
       let stackset_back = !stackset in
       g (Tail, e1);
       insns := Label b_else :: !insns;
@@ -300,7 +300,7 @@ and g' = function
   | NonTail z, IfLE (x, y', e1, e2) ->
       let b_else = Id.genid "ble_else" in
       let b_cont = Id.genid "ble_cont" in
-      insns := Bge (x, pp_id_or_imm y', b_else) :: !insns;
+      insns := Blt (pp_id_or_imm y', x, b_else) :: !insns;
       let stackset_back = !stackset in
       g (NonTail z, e1);
       let stackset1 = !stackset in
