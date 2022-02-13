@@ -106,7 +106,7 @@ and g' = function
   (* 末尾でなかったら計算結果をdestにセット *)
   | NonTail _, Nop -> ()
   | NonTail x, Set i ->
-      if -8190 <= i && i <= 8191 then insns := Addi (x, x, i) :: !insns
+      if -8190 <= i && i <= 8191 then insns := Addi (x, "zero", i) :: !insns
       else insns := Lui_i (x, i) :: Addi_i (x, x, i) :: !insns
   | NonTail x, SetF f -> insns := Lui_f (x, f) :: Addi_f (x, x, f) :: !insns
   | NonTail x, SetL (Id.L y) ->
