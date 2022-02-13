@@ -32,6 +32,7 @@ and exp =
   | Sw of reg * int * reg
   | Beq of reg * reg * label
   | Bne of reg * reg * label
+  | Bnei of reg * int * label
   | Blt of reg * reg * label
   | Bge of reg * reg * label
   | Feq of reg * reg * reg
@@ -111,10 +112,8 @@ and g' = function
   | NonTail x, Neg y ->
       if List.mem x allregs && List.mem y allregs then
         insns := Sub (x, "zero", y) :: !insns
-      else if List.mem x allregs then (
-        insns := Sub (x, "zero", y) :: !insns)
-      else if List.mem y allregs then (
-        insns := Fneg (x, y) :: !insns)
+      else if List.mem x allregs then insns := Sub (x, "zero", y) :: !insns
+      else if List.mem y allregs then insns := Fneg (x, y) :: !insns
       else insns := Fneg (x, y) :: !insns
   | NonTail x, Add (y, z') -> (
       match z' with
@@ -236,7 +235,9 @@ and g' = function
       insns := Ret :: !insns
   | Tail, IfEq (x, y', e1, e2) ->
       let b_else = Id.genid "be_else" in
-      insns := Bne (x, pp_id_or_imm y', b_else) :: !insns;
+      (match y' with
+      | V y -> insns := Bne (x, y, b_else) :: !insns
+      | C i -> insns := Bnei (x, i, b_else) :: !insns);
       let stackset_back = !stackset in
       g (Tail, e1);
       insns := Label b_else :: !insns;
@@ -279,7 +280,9 @@ and g' = function
   | NonTail z, IfEq (x, y', e1, e2) ->
       let b_else = Id.genid "be_else" in
       let b_cont = Id.genid "be_cont" in
-      insns := Bne (x, pp_id_or_imm y', b_else) :: !insns;
+      (match y' with
+      | V y -> insns := Bne (x, y, b_else) :: !insns
+      | C i -> insns := Bnei (x, i, b_else) :: !insns);
       let stackset_back = !stackset in
       g (NonTail z, e1);
       let stackset1 = !stackset in
@@ -353,7 +356,7 @@ and g' = function
       (* 末尾呼び出し *)
       g'_args [ (x, reg_cl) ] ys zs;
       insns := Lw (reg_sw, 0, reg_cl) :: !insns;
-      insns := Jumpr (reg_sw) :: !insns
+      insns := Jumpr reg_sw :: !insns
   | Tail, CallDir (Id.L x, ys, zs) ->
       (* 末尾呼び出し *)
       g'_args [] ys zs;
@@ -364,7 +367,7 @@ and g' = function
       (*insns := Sw (reg_ra, -ss, reg_sp) :: !insns;*)
       insns := Lw (reg_sw, 0, reg_cl) :: !insns;
       insns := Addi (reg_sp, reg_sp, (-1 * ss) - 1) :: !insns;
-      insns := Callr (reg_sw) :: !insns;
+      insns := Callr reg_sw :: !insns;
       insns := Addi (reg_sp, reg_sp, ss + 1) :: !insns;
       (*insns := Lw (reg_ra, -ss, reg_sp) :: !insns;*)
       if List.mem a allregs && a <> regs.(0) then
@@ -376,7 +379,7 @@ and g' = function
       let ss = stacksize () in
       (*insns := Sw (reg_ra, -ss, reg_sp) :: !insns;*)
       insns := Addi (reg_sp, reg_sp, (-1 * ss) - 1) :: !insns;
-      insns := Call (x) :: !insns;
+      insns := Call x :: !insns;
       insns := Addi (reg_sp, reg_sp, ss + 1) :: !insns;
       (*insns := Lw (reg_ra, -ss, reg_sp) :: !insns;*)
       if List.mem a allregs && a <> regs.(0) then
@@ -486,8 +489,7 @@ let rec intersect l1 l2 =
 
 let is_depend a b =
   match (a, b) with
-  | Sw (_, _, _), Sw (_, _, _)->
-      true
+  | Sw (_, _, _), Sw (_, _, _) -> true
   | Nop, _ | _, Nop -> false
   | _, _ ->
       let rd_a = rd a in
@@ -601,14 +603,10 @@ let rec sched insns cur_blk =
       match hd with
       | Beq (_, _, _)
       | Bne (_, _, _)
+      | Bnei (_, _, _)
       | Blt (_, _, _)
       | Bge (_, _, _)
-      | Jump _
-      | Jumpr _
-      | Call _
-      | Callr _
-      | Ret
-      | Label _ ->
+      | Jump _ | Jumpr _ | Call _ | Callr _ | Ret | Label _ ->
           let blk = list_sched cur_blk in
           blk @ [ hd ] @ sched rest []
       | _ as insn ->
@@ -665,16 +663,15 @@ let rec optimize insns =
 
 let insn_typ insn =
   match insn with
-  | Nop | Li _ | Lui_f _ | Lui_l _ | Add _ | Sub _ | Addi _ | Addi_f _ | Addi_l _ | Sll _ | Srl _ | Slli _
-  | Srli _ ->
+  | Nop | Li _ | Lui_f _ | Lui_l _ | Add _ | Sub _ | Addi _ | Addi_f _
+  | Addi_l _ | Sll _ | Srl _ | Slli _ | Srli _ ->
       (* ALU *) 1
-  | Fadd _ | Fsub _ | Fmul _ | Fdiv _ | Fneg _
-  | Feq _ | Fle _ | Flt _ | IntOfFloat _ | FloatOfInt _ | Fabs _ | Floor _
-  | Sqrt _ ->
+  | Fadd _ | Fsub _ | Fmul _ | Fdiv _ | Fneg _ | Feq _ | Fle _ | Flt _
+  | IntOfFloat _ | FloatOfInt _ | Fabs _ | Floor _ | Sqrt _ ->
       (* FPU *) 2
   | Lw _ | Sw _ -> (* memory *) 3
-  | Beq _ | Bne _  | Bge _ | Blt _ -> (* conditional branch *) 4
-  | Jump _ | Jumpr _ | Call _  | Callr _ | Ret -> (* unconditional branch *) 5
+  | Beq _ | Bne _ | Bnei _ | Bge _ | Blt _ -> (* conditional branch *) 4
+  | Jump _ | Jumpr _ | Call _ | Callr _ | Ret -> (* unconditional branch *) 5
   | Label _ -> (* label *) 6
 (* [1/2/4/5, 1/2, 3, 3] *)
 
@@ -704,6 +701,7 @@ let print_unit oc insn =
   | Sw (r1, i, r2) -> Printf.fprintf oc "sw %s, %d(%s); " r1 i r2
   | Beq (r1, r2, l) -> Printf.fprintf oc "beq %s, %s, %s; " r1 r2 l
   | Bne (r1, r2, l) -> Printf.fprintf oc "bne %s, %s, %s; " r1 r2 l
+  | Bnei (r1, i, l) -> Printf.fprintf oc "bnei %s, %d, %s; " r1 i l
   | Bge (r1, r2, l) -> Printf.fprintf oc "bge %s, %s, %s; " r1 r2 l
   | Blt (r1, r2, l) -> Printf.fprintf oc "blt %s, %s, %s; " r1 r2 l
   | Feq (r1, r2, r3) -> Printf.fprintf oc "feq %s, %s, %s; " r1 r2 r3
@@ -713,7 +711,7 @@ let print_unit oc insn =
   | FloatOfInt (r1, r2) -> Printf.fprintf oc "itof %s, %s; " r1 r2
   | Sqrt (r1, r2) -> Printf.fprintf oc "fsqrt %s, %s; " r1 r2
   | Jump l -> Printf.fprintf oc "jump %s; " l
-  | Jumpr r1 -> Printf.fprintf oc "jumpr %s; " r1 
+  | Jumpr r1 -> Printf.fprintf oc "jumpr %s; " r1
   | Call l -> Printf.fprintf oc "call %s; " l
   | Callr r1 -> Printf.fprintf oc "callr %s; " r1
   | Ret -> Printf.fprintf oc "ret; "
