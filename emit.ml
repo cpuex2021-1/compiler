@@ -801,17 +801,137 @@ let rec print oc insns tmp =
           print oc rest tmp)
   | [] -> print_line oc tmp
 
-let print_no_vliw oc insns =
-  let print oc insn =
-    print_unit oc insn;
-    Printf.fprintf oc "\n"
-  in
-  List.iter (print oc) insns
+let rec print_no_vliw oc insns =
+  match insns with
+  | cur :: rest -> (
+      match cur with
+      | Nop ->
+          Printf.fprintf oc "\tnop\n";
+          print_no_vliw oc rest
+      | Li (r1, i) ->
+          Printf.fprintf oc "\tli %s, %d\n" r1 i;
+          print_no_vliw oc rest
+      | Lui_i (r1, i) ->
+          Printf.fprintf oc "\tlui.int %s, %d\n" r1 i;
+          print_no_vliw oc rest
+      | Lui_f (r1, f) ->
+          Printf.fprintf oc "\tlui.float %s, %f\n" r1 f;
+          print_no_vliw oc rest
+      | Lui_l (r1, l) ->
+          Printf.fprintf oc "\tlui.label %s, %s\n" r1 l;
+          print_no_vliw oc rest
+      | Add (r1, r2, r3) ->
+          Printf.fprintf oc "\tadd %s, %s, %s\n" r1 r2 r3;
+          print_no_vliw oc rest
+      | Sub (r1, r2, r3) ->
+          Printf.fprintf oc "\tsub %s, %s, %s\n" r1 r2 r3;
+          print_no_vliw oc rest
+      | Addi (r1, r2, i) ->
+          Printf.fprintf oc "\taddi %s, %s, %d\n" r1 r2 i;
+          print_no_vliw oc rest
+      | Addi_i (r1, r2, i) ->
+          Printf.fprintf oc "\taddi.int %s, %s, %d\n" r1 r2 i;
+          print_no_vliw oc rest
+      | Addi_f (r1, r2, f) ->
+          Printf.fprintf oc "\taddi.float %s, %s, %f\n" r1 r2 f;
+          print_no_vliw oc rest
+      | Addi_l (r1, r2, l) ->
+          Printf.fprintf oc "\taddi.label %s, %s, %s\n" r1 r2 l;
+          print_no_vliw oc rest
+      | Sll (r1, r2, r3) ->
+          Printf.fprintf oc "\tsll %s, %s, %s\n" r1 r2 r3;
+          print_no_vliw oc rest
+      | Srl (r1, r2, r3) ->
+          Printf.fprintf oc "\tsrl %s, %s, %s\n" r1 r2 r3;
+          print_no_vliw oc rest
+      | Slli (r1, r2, i) ->
+          Printf.fprintf oc "\tslli %s, %s, %d\n" r1 r2 i;
+          print_no_vliw oc rest
+      | Srli (r1, r2, i) ->
+          Printf.fprintf oc "\tsrli %s, %s, %d\n" r1 r2 i;
+          print_no_vliw oc rest
+      | Fadd (r1, r2, r3) ->
+          Printf.fprintf oc "\tfadd %s, %s, %s\n" r1 r2 r3;
+          print_no_vliw oc rest
+      | Fsub (r1, r2, r3) ->
+          Printf.fprintf oc "\tfsub %s, %s, %s\n" r1 r2 r3;
+          print_no_vliw oc rest
+      | Fmul (r1, r2, r3) ->
+          Printf.fprintf oc "\tfmul %s, %s, %s\n" r1 r2 r3;
+          print_no_vliw oc rest
+      | Fdiv (r1, r2, r3) ->
+          Printf.fprintf oc "\tfdiv %s, %s, %s\n" r1 r2 r3;
+          print_no_vliw oc rest
+      | Fneg (r1, r2) ->
+          Printf.fprintf oc "\tfneg %s, %s\n" r1 r2;
+          print_no_vliw oc rest
+      | Lw (r1, i, r2) ->
+          Printf.fprintf oc "\tlw %s, %d(%s)\n" r1 i r2;
+          print_no_vliw oc rest
+      | Sw (r1, i, r2) ->
+          Printf.fprintf oc "\tsw %s, %d(%s)\n" r1 i r2;
+          print_no_vliw oc rest
+      | Beq (r1, r2, l) ->
+          Printf.fprintf oc "\tbeq %s, %s, %s\n" r1 r2 l;
+          print_no_vliw oc rest
+      | Bne (r1, r2, l) ->
+          Printf.fprintf oc "\tbne %s, %s, %s\n" r1 r2 l;
+          print_no_vliw oc rest
+      | Bnei (r1, i, l) ->
+          Printf.fprintf oc "\tbnei %s, %d, %s\n" r1 i l;
+          print_no_vliw oc rest
+      | Blt (r1, r2, l) ->
+          Printf.fprintf oc "\tblt %s, %s, %s\n" r1 r2 l;
+          print_no_vliw oc rest
+      | Bge (r1, r2, l) -> assert false
+      | Feq (r1, r2, r3) ->
+          Printf.fprintf oc "\tfeq %s, %s, %s\n" r1 r2 r3;
+          print_no_vliw oc rest
+      | Fle (r1, r2, r3) ->
+          Printf.fprintf oc "\tfle %s, %s, %s\n" r1 r2 r3;
+          print_no_vliw oc rest
+      | Flt (r1, r2, r3) ->
+          Printf.fprintf oc "\tflt %s, %s, %s\n" r1 r2 r3;
+          print_no_vliw oc rest
+      | IntOfFloat (r1, r2) ->
+          Printf.fprintf oc "\tftoi %s, %s\n" r1 r2;
+          print_no_vliw oc rest
+      | FloatOfInt (r1, r2) ->
+          Printf.fprintf oc "\titof %s, %s\n" r1 r2;
+          print_no_vliw oc rest
+      | Fabs (r1, r2) ->
+          Printf.fprintf oc "\tfabs %s, %s\n" r1 r2;
+          print_no_vliw oc rest
+      | Floor (r1, r2) ->
+          Printf.fprintf oc "\tfloor %s, %s\n" r1 r2;
+          print_no_vliw oc rest
+      | Sqrt (r1, r2) ->
+          Printf.fprintf oc "\tfsqrt %s, %s\n" r1 r2;
+          print_no_vliw oc rest
+      | Jump l ->
+          Printf.fprintf oc "\tjump %s\n" l;
+          print_no_vliw oc rest
+      | Jumpr l ->
+          Printf.fprintf oc "\tjumpr %s\n" l;
+          print_no_vliw oc rest
+      | Call l ->
+          Printf.fprintf oc "\tcall %s\n" l;
+          print_no_vliw oc rest
+      | Callr l ->
+          Printf.fprintf oc "\tcallr %s\n" l;
+          print_no_vliw oc rest
+      | Ret ->
+          Printf.fprintf oc "\tret\n";
+          print_no_vliw oc rest
+      | Label l ->
+          Printf.fprintf oc "%s:\n" l;
+          print_no_vliw oc rest)
+  | [] -> ()
 
 let print_all oc insns =
   Format.eprintf "generating assembly...@.";
   (* Printf.fprintf oc "\tli hp, %d\n" !Normalize.hp_init; *)
-  Printf.fprintf oc "\tjump min_caml_start; nop; nop; nop;\n";
+  Printf.fprintf oc "\tjump min_caml_start\n";
   let print_file filename =
     let chan = open_in filename in
     try
@@ -825,4 +945,4 @@ let print_all oc insns =
   print_file "lib/float.s";
   print_file "lib/array.s";
   print_file "lib/tri.s";
-  print oc insns [| Nop; Nop; Nop; Nop |]
+  print_no_vliw oc insns
