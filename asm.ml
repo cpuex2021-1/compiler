@@ -111,7 +111,7 @@ let reg_ra = "ra"
 let is_reg x =
   Array.exists (fun a -> a = x) regs
   || Array.exists (fun a -> a = x) fregs
-  || x = reg_sp || x = reg_hp || x = reg_ra
+  || x = reg_sp || x = reg_hp || x = reg_ra || x = "zero" || x = "fzero"
 
 let rec remove_and_uniq xs = function
   | [] -> []

@@ -198,22 +198,16 @@ let rec g env = function
         in
         load
   | Closure.Get (x, y) -> (
-      if (* let offset = Id.genid "o" in *)
-         env_exists x !Normalize.global_arrays
+      if x = "zero" then Asm.Ans (Asm.Ld ("zero", Asm.V y))
+      else if x = "fzero" then Asm.Ans (Asm.LdDF ("zero", Asm.V y))
+      else if
+        (* let offset = Id.genid "o" in *)
+        env_exists x !Normalize.global_arrays
       then
         let addr, ty = env_find x !Normalize.global_arrays in
-        let offset = Id.genid "o" in
         match ty with
-        | Type.Float ->
-            Asm.Let
-              ( (offset, Type.Int),
-                Asm.Set addr,
-                Asm.Ans (Asm.LdDF (y, Asm.V offset)) )
-        | Type.Int ->
-            Asm.Let
-              ( (offset, Type.Int),
-                Asm.Set addr,
-                Asm.Ans (Asm.Ld (y, Asm.V offset)) )
+        | Type.Float -> Asm.Ans (Asm.LdDF (y, Asm.C addr))
+        | Type.Int -> Asm.Ans (Asm.Ld (y, Asm.C addr))
         | _ -> assert false
       else
         match env_find x env with
@@ -222,43 +216,28 @@ let rec g env = function
         | Type.Array _ -> Asm.Ans (Asm.Ld (x, Asm.V y))
         | _ -> assert false)
   | Closure.Put (x, y, z) -> (
-      if (* let offset = Id.genid "o" in *)
-         env_exists x !Normalize.global_arrays
+      if x = "zero" then Asm.Ans (Asm.St (z, y, Asm.V "zero"))
+      else if x = "fzero" then Asm.Ans (Asm.StDF (z, y, Asm.V "zero"))
+      else if
+        (* let offset = Id.genid "o" in *)
+        env_exists x !Normalize.global_arrays
       then
         if env_exists z !Normalize.global_arrays then
           let addr, ty = env_find z !Normalize.global_arrays in
           let z' = Id.genid "g" in
-          let offset = Id.genid "o" in
           Asm.Let
             ( (z', Type.Int),
               Asm.Set addr,
               let addr', ty' = env_find x !Normalize.global_arrays in
               match ty' with
-              | Type.Float ->
-                  Asm.Let
-                    ( (offset, Type.Int),
-                      Asm.Set addr',
-                      Asm.Ans (Asm.StDF (z', y, Asm.V offset)) )
-              | Type.Int ->
-                  Asm.Let
-                    ( (offset, Type.Int),
-                      Asm.Set addr',
-                      Asm.Ans (Asm.St (z', y, Asm.V offset)) )
+              | Type.Float -> Asm.Ans (Asm.StDF (z', y, Asm.C addr'))
+              | Type.Int -> Asm.Ans (Asm.St (z', y, Asm.C addr'))
               | _ -> assert false )
         else
           let addr, ty = env_find x !Normalize.global_arrays in
-          let offset = Id.genid "o" in
           match ty with
-          | Type.Float ->
-              Asm.Let
-                ( (offset, Type.Int),
-                  Asm.Set addr,
-                  Asm.Ans (Asm.StDF (z, y, Asm.V offset)) )
-          | Type.Int ->
-              Asm.Let
-                ( (offset, Type.Int),
-                  Asm.Set addr,
-                  Asm.Ans (Asm.St (z, y, Asm.V offset)) )
+          | Type.Float -> Asm.Ans (Asm.StDF (z, y, Asm.C addr))
+          | Type.Int -> Asm.Ans (Asm.St (z, y, Asm.C addr))
           | _ -> assert false
       else if env_exists z !Normalize.global_arrays then
         let addr, ty = env_find z !Normalize.global_arrays in

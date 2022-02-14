@@ -11,7 +11,7 @@ create_array_cont:
 create_array_exit:
     add a0, hp, zero
     add hp, hp, a3
-    jalr zero, ra, 0
+    ret
 create_float_array: # a0-length array with value f0
     addi a3, a0, 0
 create_float_array_loop:
@@ -20,12 +20,12 @@ create_float_array_cont:
     addi a0, a0, -1
     # slli a2, a0, 2
     add a2, a0, hp
-    fsw f0, 0(a2)
+    sw f0, 0(a2)
     jump create_float_array_loop
 create_float_array_exit:
     add a0, hp, zero
     add hp, hp, a3
-    jalr zero, ra, 0
+    ret
 create_global_array: # a1-length array with value a2 @address a0
     addi a3, a0, 0
     addi a0, a1, 0
@@ -39,7 +39,7 @@ create_global_array_cont:
     jump create_global_array_loop
 create_global_array_exit:
     add a0, a3, zero
-    jalr zero, ra, 0
+    ret
 create_global_float_array: # a1-length array with value f0 @address a0
     addi a3, a0, 0
     addi a0, a1, 0
@@ -48,8 +48,8 @@ create_global_float_array_loop:
 create_global_float_array_cont:
     addi a0, a0, -1
     add a4, a0, a3
-    fsw f0, 0(a4)
+    sw f0, 0(a4)
     jump create_global_float_array_loop
 create_global_float_array_exit:
     add a0, a3, zero
-    jalr zero, ra, 0
+    ret

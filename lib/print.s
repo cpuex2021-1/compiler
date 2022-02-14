@@ -1,6 +1,6 @@
 print_char:
     sw a0, 0(zero)
-	jalr zero, ra, 0
+	ret
 print_int:
 	li a1, 48
 	li a2, 48
@@ -28,4 +28,4 @@ print_int_l4:
 	sw a1, 0(zero)
 	sw a2, 0(zero)
 	sw a3, 0(zero)
-	jalr zero, ra, 0
+	ret
