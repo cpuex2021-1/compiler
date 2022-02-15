@@ -39,10 +39,9 @@ and exp =
   | Fispos of Id.t
   | Fisneg of Id.t
   | Fneg of Id.t
-  (* | Fabs of Id.t *)
+  | Fabs of Id.t
   | Fless of Id.t * Id.t
-  (* | Fhalf of Id.t *)
-  (* | Floor of Id.t *)
+  | Floor of Id.t
   | IntOfFloat of Id.t
   | FloatOfInt of Id.t
   | Sqrt of Id.t
@@ -91,7 +90,7 @@ let regs =
     "swp";
   |]
 
-let fregs = Array.init 13 (fun i -> Printf.sprintf "f%d" i)
+let fregs = Array.init 27 (fun i -> Printf.sprintf "f%d" i)
 
 let allregs = Array.to_list regs
 
@@ -112,7 +111,7 @@ let reg_ra = "ra"
 let is_reg x =
   Array.exists (fun a -> a = x) regs
   || Array.exists (fun a -> a = x) fregs
-  || x = reg_sp || x = reg_hp || x = reg_ra
+  || x = reg_sp || x = reg_hp || x = reg_ra || x = "zero" || x = "fzero"
 
 let rec remove_and_uniq xs = function
   | [] -> []
@@ -134,15 +133,17 @@ let rec fv_exp = function
   | St (x, y, z') | StDF (x, y, z') -> x :: y :: fv_id_or_imm z'
   | FAddD (x, y) | FSubD (x, y) | FMulD (x, y) | FDivD (x, y) -> [ x; y ]
   | IfEq (x, y', e1, e2) | IfLE (x, y', e1, e2) | IfGE (x, y', e1, e2) ->
-      x :: fv_id_or_imm y' @ remove_and_uniq [] (fv e1 @ fv e2)
+      (x :: fv_id_or_imm y') @ remove_and_uniq [] (fv e1 @ fv e2)
   | IfFEq (x, y, e1, e2) | IfFLE (x, y, e1, e2) ->
       x :: y :: remove_and_uniq [] (fv e1 @ fv e2)
-  | CallCls (x, ys, zs) -> x :: ys @ zs
+  | CallCls (x, ys, zs) -> (x :: ys) @ zs
   | CallDir (_, ys, zs) -> ys @ zs
   | Fiszero x
   | Fispos x
   | Fisneg x
   | Fneg x
+  | Fabs x
+  | Floor x
   | IntOfFloat x
   | FloatOfInt x
   | Sqrt x
@@ -162,3 +163,59 @@ let rec concat e1 xt e2 =
   | Let (yt, exp, e1') -> Let (yt, exp, concat e1' xt e2)
 
 let align i = if i mod 2 = 0 then i else i + 1
+
+type fundata = { arg_regs : Id.t list; ret_reg : Id.t; use_regs : Id.t list }
+
+let (fundata : (Id.t * fundata) list ref) =
+  ref
+    [
+      ( "create_array",
+        {
+          arg_regs = [ "a0"; "a1" ];
+          ret_reg = "a0";
+          use_regs = allregs @ allfregs;
+        } );
+      ( "create_float_array",
+        {
+          arg_regs = [ "a0"; "f0" ];
+          ret_reg = "a0";
+          use_regs = allregs @ allfregs;
+        } );
+      ( "create_global_array",
+        {
+          arg_regs = [ "a0"; "a1"; "a2" ];
+          ret_reg = "a0";
+          use_regs = allregs @ allfregs;
+        } );
+      ( "create_float_array",
+        {
+          arg_regs = [ "a0"; "a1"; "f0" ];
+          ret_reg = "a0";
+          use_regs = allregs @ allfregs;
+        } );
+      ( "fabs",
+        { arg_regs = [ "f0" ]; ret_reg = "f0"; use_regs = allregs @ allfregs }
+      );
+      ( "floor",
+        { arg_regs = [ "f0" ]; ret_reg = "f0"; use_regs = allregs @ allfregs }
+      );
+      ( "print_char",
+        { arg_regs = [ "a0" ]; ret_reg = "a0"; use_regs = allregs @ allfregs }
+      );
+      ( "print_int",
+        { arg_regs = [ "a0" ]; ret_reg = "a0"; use_regs = allregs @ allfregs }
+      );
+      ( "read_int",
+        { arg_regs = []; ret_reg = "a0"; use_regs = allregs @ allfregs } );
+      ( "read_float",
+        { arg_regs = []; ret_reg = "f0"; use_regs = allregs @ allfregs } );
+      ( "sin",
+        { arg_regs = [ "f0" ]; ret_reg = "f0"; use_regs = allregs @ allfregs }
+      );
+      ( "cos",
+        { arg_regs = [ "f0" ]; ret_reg = "f0"; use_regs = allregs @ allfregs }
+      );
+      ( "atan",
+        { arg_regs = [ "f0" ]; ret_reg = "f0"; use_regs = allregs @ allfregs }
+      );
+    ]

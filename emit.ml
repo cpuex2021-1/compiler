@@ -25,22 +25,21 @@ and exp =
   | Fsub of reg * reg * reg
   | Fmul of reg * reg * reg
   | Fdiv of reg * reg * reg
-  | Fmv of reg * reg
-  | Fmvxw of reg * reg
-  | Fmvwx of reg * reg
   | Fneg of reg * reg
   | Lw of reg * int * reg
-  | Flw of reg * int * reg
   | Sw of reg * int * reg
-  | Fsw of reg * int * reg
   | Beq of reg * reg * label
   | Bne of reg * reg * label
+  | Bnei of reg * int * label
   | Blt of reg * reg * label
+  | Bge of reg * reg * label
   | Feq of reg * reg * reg
   | Fle of reg * reg * reg
   | Flt of reg * reg * reg
   | IntOfFloat of reg * reg
   | FloatOfInt of reg * reg
+  | Fabs of reg * reg
+  | Floor of reg * reg
   | Sqrt of reg * reg
   | Jump of label
   | Jalr of reg * reg * int
@@ -81,12 +80,9 @@ let rec shuffle sw xys =
   | [], [] -> []
   | (x, y) :: xys, [] ->
       (* no acyclic moves; resolve a cyclic move *)
-      (y, sw)
-      ::
-      (x, y)
-      ::
-      shuffle sw
-        (List.map (function y', z when y = y' -> (sw, z) | yz -> yz) xys)
+      (y, sw) :: (x, y)
+      :: shuffle sw
+           (List.map (function y', z when y = y' -> (sw, z) | yz -> yz) xys)
   | xys, acyc -> acyc @ shuffle sw xys
 
 type dest = Tail | NonTail of Id.t
@@ -111,12 +107,8 @@ and g' = function
   | NonTail x, Neg y ->
       if List.mem x allregs && List.mem y allregs then
         insns := Sub (x, "zero", y) :: !insns
-      else if List.mem x allregs then (
-        insns := Fmvxw (x, y) :: !insns;
-        insns := Sub (x, "zero", x) :: !insns)
-      else if List.mem y allregs then (
-        insns := Fmvwx (x, y) :: !insns;
-        insns := Fneg (x, x) :: !insns)
+      else if List.mem x allregs then insns := Sub (x, "zero", y) :: !insns
+      else if List.mem y allregs then insns := Fneg (x, y) :: !insns
       else insns := Fneg (x, y) :: !insns
   | NonTail x, Add (y, z') -> (
       match z' with
@@ -138,19 +130,15 @@ and g' = function
       match z' with
       | V id ->
           insns := Add ("a22", id, y) :: !insns;
-          if List.mem x allregs then insns := Lw (x, 0, "a22") :: !insns
-          else insns := Flw (x, 0, "a22") :: !insns
+          insns := Lw (x, 0, "a22") :: !insns
       | C i -> insns := Lw (x, i, y) :: !insns)
   | NonTail _, St (x, y, z') -> (
       match z' with
       | V id ->
           insns := Add ("a22", id, y) :: !insns;
-          if List.mem x allregs then insns := Sw (x, 0, "a22") :: !insns
-          else insns := Fsw (x, 0, "a22") :: !insns
+          insns := Sw (x, 0, "a22") :: !insns
       | C i -> insns := Sw (x, i, y) :: !insns)
   | NonTail x, FMovD y when x = y -> ()
-  | NonTail x, FMovD y when List.mem x allregs ->
-      insns := Fmvxw (x, y) :: !insns
   | NonTail x, FMovD y -> insns := Fadd (x, y, "fzero") :: !insns
   | NonTail x, FNegD y -> insns := Fneg (x, y) :: !insns
   | NonTail x, FAddD (y, z) -> insns := Fadd (x, y, z) :: !insns
@@ -161,7 +149,9 @@ and g' = function
   | NonTail x, Fispos y -> insns := Flt (x, "fzero", y) :: !insns
   | NonTail x, Fisneg y -> insns := Flt (x, y, "fzero") :: !insns
   | NonTail x, Fneg y -> insns := Fneg (x, y) :: !insns
+  | NonTail x, Fabs y -> insns := Fabs (x, y) :: !insns
   | NonTail x, Fless (y, z) -> insns := Flt (x, y, z) :: !insns
+  | NonTail x, Floor y -> insns := Floor (x, y) :: !insns
   | NonTail x, IntOfFloat y -> insns := IntOfFloat (x, y) :: !insns
   | NonTail x, FloatOfInt y -> insns := FloatOfInt (x, y) :: !insns
   | NonTail x, Sqrt y -> insns := Sqrt (x, y) :: !insns
@@ -170,16 +160,15 @@ and g' = function
       match z' with
       | V id ->
           insns := Add ("a22", id, y) :: !insns;
-          if List.mem x allregs then insns := Lw (x, 0, "a22") :: !insns
-          else insns := Flw (x, 0, "a22") :: !insns
-      | C i -> insns := Flw (x, i, y) :: !insns)
+          insns := Lw (x, 0, "a22") :: !insns
+      | C i -> insns := Lw (x, i, y) :: !insns)
   | NonTail _, StDF (x, y, z') -> (
       match z' with
       | V id ->
           insns := Add ("a22", id, y) :: !insns;
-          if List.mem x allregs then insns := Sw (x, 0, "a22") :: !insns
-          else insns := Fsw (x, 0, "a22") :: !insns
-      | C i -> insns := Fsw (x, i, y) :: !insns)
+          if List.mem x allregs then insns := Sw (x, 0, "a22") :: !insns;
+          insns := Sw (x, 0, "a22") :: !insns
+      | C i -> insns := Sw (x, i, y) :: !insns)
   | NonTail _, Comment s -> ()
   (* 退避の仮想命令の実装 *)
   | NonTail _, Save (x, y)
@@ -193,7 +182,7 @@ and g' = function
       if y = "zero" || y = "fzero" || env_exists y !Sched.substitutes then ()
       else (
         save y;
-        insns := Fsw (x, offset y, reg_sp) :: !insns)
+        insns := Sw (x, offset y, reg_sp) :: !insns)
   | NonTail _, Save (x, y) ->
       assert (set_exist y !stackset);
       ()
@@ -214,7 +203,7 @@ and g' = function
         else insns := Fli (x, 0.0) :: !insns
       else if y = "zero" then insns := Li (x, 0) :: !insns
       else if y = "fzero" then insns := Fli (x, 0.0) :: !insns
-      else insns := Flw (x, offset y, reg_sp) :: !insns
+      else insns := Lw (x, offset y, reg_sp) :: !insns
   (* 末尾だったら計算結果を第一レジスタにセットしてret *)
   | Tail, ((Nop | St _ | StDF _ | Comment _ | Save _) as exp) ->
       g' (NonTail (Id.gentmp Type.Unit), exp);
@@ -241,7 +230,9 @@ and g' = function
       insns := Jalr ("zero", "ra", 0) :: !insns
   | Tail, IfEq (x, y', e1, e2) ->
       let b_else = Id.genid "be_else" in
-      insns := Bne (x, pp_id_or_imm y', b_else) :: !insns;
+      (match y' with
+      | V y -> insns := Bne (x, y, b_else) :: !insns
+      | C i -> insns := Bnei (x, i, b_else) :: !insns);
       let stackset_back = !stackset in
       g (Tail, e1);
       insns := Label b_else :: !insns;
@@ -284,7 +275,9 @@ and g' = function
   | NonTail z, IfEq (x, y', e1, e2) ->
       let b_else = Id.genid "be_else" in
       let b_cont = Id.genid "be_cont" in
-      insns := Bne (x, pp_id_or_imm y', b_else) :: !insns;
+      (match y' with
+      | V y -> insns := Bne (x, y, b_else) :: !insns
+      | C i -> insns := Bnei (x, i, b_else) :: !insns);
       let stackset_back = !stackset in
       g (NonTail z, e1);
       let stackset1 = !stackset in
@@ -404,7 +397,7 @@ and g'_args x_reg_cl ys zs =
       (0, []) zs
   in
   List.iter
-    (fun (z, fr) -> insns := Fmv (fr, z) :: !insns)
+    (fun (z, fr) -> insns := Add (fr, z, "zero") :: !insns)
     (shuffle reg_fsw zfrs)
 
 let h { name = Id.L x; args = _; fargs = _; body = e; ret = _ } =
@@ -421,7 +414,7 @@ let rec f (Prog (data, fundefs, e)) =
   stackset := [];
   stackmap := [];
   g (NonTail "a0", e);
-  insns := Jalr ("zero", "ra", 0) :: !insns;
+  (* insns := Jalr ("zero", "ra", 0) :: !insns; *)
   List.rev !insns
 
 let rd a =
@@ -440,14 +433,15 @@ let rd a =
   | Fsub (x, _, _) -> [ x ]
   | Fmul (x, _, _) -> [ x ]
   | Fdiv (x, _, _) -> [ x ]
-  | Fmv (x, _) -> [ x ]
-  | Fmvxw (x, _) -> [ x ]
-  | Fmvwx (x, _) -> [ x ]
   | Fneg (x, _) -> [ x ]
   | Lw (x, _, _) -> [ x ]
-  | Flw (x, _, _) -> [ x ]
   | Feq (x, _, _) -> [ x ]
   | Fle (x, _, _) -> [ x ]
+  | Flt (x, _, _) -> [ x ]
+  | IntOfFloat (x, _) -> [ x ]
+  | FloatOfInt (x, _) -> [ x ]
+  | Fabs (x, _) -> [ x ]
+  | Floor (x, _) -> [ x ]
   | _ -> []
 
 let rs a =
@@ -463,16 +457,21 @@ let rs a =
   | Fsub (_, y, z) -> [ y; z ]
   | Fmul (_, y, z) -> [ y; z ]
   | Fdiv (_, y, z) -> [ y; z ]
-  | Fmv (_, y) -> [ y ]
-  | Fmvxw (_, y) -> [ y ]
-  | Fmvwx (_, y) -> [ y ]
   | Fneg (_, y) -> [ y ]
   | Lw (_, _, z) -> [ z ]
-  | Flw (_, _, z) -> [ z ]
   | Sw (x, _, z) -> [ x; z ]
-  | Fsw (x, _, z) -> [ x; z ]
+  | Beq (x, y, _) -> [ x; y ]
+  | Bne (x, y, _) -> [ x; y ]
+  | Bnei (x, _, _) -> [ x ]
+  | Blt (x, y, _) -> [ x; y ]
+  | Bge (x, y, _) -> [ x; y ]
   | Feq (_, y, z) -> [ y; z ]
   | Fle (_, y, z) -> [ y; z ]
+  | Flt (_, y, z) -> [ y; z ]
+  | IntOfFloat (_, y) -> [ y ]
+  | FloatOfInt (_, y) -> [ y ]
+  | Fabs (_, y) -> [ y ]
+  | Floor (_, y) -> [ y ]
   | _ -> []
 
 let rec intersect l1 l2 =
@@ -486,11 +485,8 @@ let rec intersect l1 l2 =
 
 let is_depend a b =
   match (a, b) with
-  | Sw (_, _, _), Sw (_, _, _)
-  | Fsw (_, _, _), Fsw (_, _, _)
-  | Sw (_, _, _), Fsw (_, _, _)
-  | Fsw (_, _, _), Sw (_, _, _) ->
-      true
+  | Sw (_, _, _), Sw (_, _, _) -> true
+  | Nop, _ | _, Nop -> false
   | _, _ ->
       let rd_a = rd a in
       let rd_b = rd b in
@@ -513,52 +509,52 @@ let rec del graph i =
   | [] -> []
 
 (* let list_sched blk =
-  let graph = ref [] in
-  (* (from, to) *)
-  let n = List.length blk in
-  for i = 0 to n - 1 do
-    for j = 0 to n - 1 do
-      if i < j then
-        let a = List.nth blk i in
-        let b = List.nth blk j in
-        if is_depend a b then graph := !graph @ [ (i, j) ] else ()
-      else ()
-    done
-  done;
-  let res = ref [] in
-  let isused = Array.make n false in
-  let b = ref false in
-  while List.length !res < n do
-    (try
-       for i = 0 to n - 1 do
-         match List.nth blk i with
-         | (Lw (_, _, _) | Flw (_, _, _))
-           when n_in !graph i = 0 && isused.(i) = false && !b = false ->
-             isused.(i) <- true;
-             b := true;
-             graph := del !graph i;
-             res := !res @ [ List.nth blk i ];
-             raise Selected
-         | _ -> ()
-       done
-     with Selected -> ());
-    (try
-       for i = 0 to n - 1 do
-         match List.nth blk i with
-         | Lw (_, _, _) | Flw (_, _, _) -> ()
-         | _ when n_in !graph i = 0 && isused.(i) = false && !b = false ->
-             isused.(i) <- true;
-             b := true;
-             graph := del !graph i;
-             res := !res @ [ List.nth blk i ];
-             raise Selected
-         | _ -> ()
-       done
-     with Selected -> ());
-    if !b = false then Format.eprintf "not proceed@.";
-    b := false
-  done;
-  !res *)
+   let graph = ref [] in
+   (* (from, to) *)
+   let n = List.length blk in
+   for i = 0 to n - 1 do
+     for j = 0 to n - 1 do
+       if i < j then
+         let a = List.nth blk i in
+         let b = List.nth blk j in
+         if is_depend a b then graph := !graph @ [ (i, j) ] else ()
+       else ()
+     done
+   done;
+   let res = ref [] in
+   let isused = Array.make n false in
+   let b = ref false in
+   while List.length !res < n do
+     (try
+        for i = 0 to n - 1 do
+          match List.nth blk i with
+          | (Lw (_, _, _) | Flw (_, _, _))
+            when n_in !graph i = 0 && isused.(i) = false && !b = false ->
+              isused.(i) <- true;
+              b := true;
+              graph := del !graph i;
+              res := !res @ [ List.nth blk i ];
+              raise Selected
+          | _ -> ()
+        done
+      with Selected -> ());
+     (try
+        for i = 0 to n - 1 do
+          match List.nth blk i with
+          | Lw (_, _, _) | Flw (_, _, _) -> ()
+          | _ when n_in !graph i = 0 && isused.(i) = false && !b = false ->
+              isused.(i) <- true;
+              b := true;
+              graph := del !graph i;
+              res := !res @ [ List.nth blk i ];
+              raise Selected
+          | _ -> ()
+        done
+      with Selected -> ());
+     if !b = false then Format.eprintf "not proceed@.";
+     b := false
+   done;
+   !res *)
 
 let rec list_sched blk =
   let rec swap blk =
@@ -568,7 +564,7 @@ let rec list_sched blk =
     | a :: rest -> (
         let b = List.hd rest in
         match b with
-        | Lw _ | Flw _ ->
+        | Lw _ ->
             if is_depend a b then a :: swap rest
             else b :: swap (a :: List.tl rest)
         | _ -> a :: swap rest)
@@ -588,11 +584,13 @@ let rec sched insns cur_blk =
       match hd with
       | Beq (_, _, _)
       | Bne (_, _, _)
+      | Bnei (_, _, _)
       | Blt (_, _, _)
       | Jump _
       | Jalr (_, _, _)
       | Jal (_, _)
-      | Label _ ->
+      | Label _
+      | Bge (_, _, _) ->
           let blk = list_sched cur_blk in
           blk @ [ hd ] @ sched rest []
       | _ as insn ->
@@ -627,23 +625,9 @@ let rec optimize insns =
                     cur :: replace (List.tl rest)
                   else default ()
               | _ -> default ())
-          | Flw (lx, li, ly) -> (
-              match List.hd rest with
-              | Fsw (sx, si, sy) ->
-                  if lx = sx && li = si && ly = sy then
-                    cur :: replace (List.tl rest)
-                  else default ()
-              | _ -> default ())
           | Sw (lx, li, ly) -> (
               match List.hd rest with
               | Lw (sx, si, sy) ->
-                  if lx = sx && li = si && ly = sy then
-                    cur :: replace (List.tl rest)
-                  else default ()
-              | _ -> default ())
-          | Fsw (lx, li, ly) -> (
-              match List.hd rest with
-              | Flw (sx, si, sy) ->
                   if lx = sx && li = si && ly = sy then
                     cur :: replace (List.tl rest)
                   else default ()
@@ -710,29 +694,14 @@ let rec print oc insns =
       | Fdiv (r1, r2, r3) ->
           Printf.fprintf oc "\tfdiv %s, %s, %s\n" r1 r2 r3;
           print oc rest
-      | Fmv (r1, r2) ->
-          Printf.fprintf oc "\tfmv %s, %s\n" r1 r2;
-          print oc rest
-      | Fmvxw (r1, r2) ->
-          Printf.fprintf oc "\tfmv.x.w %s, %s\n" r1 r2;
-          print oc rest
-      | Fmvwx (r1, r2) ->
-          Printf.fprintf oc "\tfmv.w.x %s, %s\n" r1 r2;
-          print oc rest
       | Fneg (r1, r2) ->
           Printf.fprintf oc "\tfneg %s, %s\n" r1 r2;
           print oc rest
       | Lw (r1, i, r2) ->
           Printf.fprintf oc "\tlw %s, %d(%s)\n" r1 i r2;
           print oc rest
-      | Flw (r1, i, r2) ->
-          Printf.fprintf oc "\tflw %s, %d(%s)\n" r1 i r2;
-          print oc rest
       | Sw (r1, i, r2) ->
           Printf.fprintf oc "\tsw %s, %d(%s)\n" r1 i r2;
-          print oc rest
-      | Fsw (r1, i, r2) ->
-          Printf.fprintf oc "\tfsw %s, %d(%s)\n" r1 i r2;
           print oc rest
       | Beq (r1, r2, l) ->
           Printf.fprintf oc "\tbeq %s, %s, %s\n" r1 r2 l;
@@ -740,9 +709,13 @@ let rec print oc insns =
       | Bne (r1, r2, l) ->
           Printf.fprintf oc "\tbne %s, %s, %s\n" r1 r2 l;
           print oc rest
+      | Bnei (r1, i, l) ->
+          Printf.fprintf oc "\tbnei %s, %d, %s\n" r1 i l;
+          print oc rest
       | Blt (r1, r2, l) ->
           Printf.fprintf oc "\tblt %s, %s, %s\n" r1 r2 l;
           print oc rest
+      | Bge (r1, r2, l) -> assert false
       | Feq (r1, r2, r3) ->
           Printf.fprintf oc "\tfeq %s, %s, %s\n" r1 r2 r3;
           print oc rest
@@ -757,6 +730,12 @@ let rec print oc insns =
           print oc rest
       | FloatOfInt (r1, r2) ->
           Printf.fprintf oc "\titof %s, %s\n" r1 r2;
+          print oc rest
+      | Fabs (r1, r2) ->
+          Printf.fprintf oc "\tfabs %s, %s\n" r1 r2;
+          print oc rest
+      | Floor (r1, r2) ->
+          Printf.fprintf oc "\tfloor %s, %s\n" r1 r2;
           print oc rest
       | Sqrt (r1, r2) ->
           Printf.fprintf oc "\tfsqrt %s, %s\n" r1 r2;
